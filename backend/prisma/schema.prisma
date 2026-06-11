@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  connections DatabaseConnection[]
+  queries     SavedQuery[]
+  history     QueryHistory[]
+}
+
+model DatabaseConnection {
+  id        String   @id @default(uuid())
+  name      String
+  type      String   // e.g., postgresql, mysql, sqlite
+  host      String?
+  port      Int?
+  username  String?
+  password  String?
+  database  String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  queries   SavedQuery[]
+  history   QueryHistory[]
+}
+
+model SavedQuery {
+  id           String             @id @default(uuid())
+  name         String
+  description  String?
+  query        String
+  connectionId String?
+  connection   DatabaseConnection? @relation(fields: [connectionId], references: [id])
+  userId       String
+  user         User               @relation(fields: [userId], references: [id])
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+model QueryHistory {
+  id           String             @id @default(uuid())
+  query        String
+  status       String             // success, error
+  executionTimeMs Int?
+  errorMessage String?
+  connectionId String
+  connection   DatabaseConnection @relation(fields: [connectionId], references: [id])
+  userId       String
+  user         User               @relation(fields: [userId], references: [id])
+  createdAt    DateTime           @default(now())
+}

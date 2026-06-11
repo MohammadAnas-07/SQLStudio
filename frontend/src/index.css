@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 11%;
+    --foreground: 0 0% 98%;
+
+    --primary: #3ecf8e;
+    --primary-deep: #24b47e;
+    --primary-soft: #4ade80;
+    --primary-foreground: #171717;
+
+    --ink: #ffffff;
+    --ink-secondary: #e0e0e0;
+    --ink-mute: #a0a0a0;
+    --ink-mute-2: #808080;
+    --ink-faint: #505050;
+
+    --canvas: #161616;
+    --canvas-soft: #1c1c1c;
+    --canvas-night: #121212;
+    --canvas-night-soft: #1a1a1a;
+
+    --hairline: #333333;
+    --hairline-strong: #444444;
+    --hairline-cool: #2a2a2a;
+
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
