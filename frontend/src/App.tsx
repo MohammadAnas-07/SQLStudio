@@ -7,6 +7,8 @@ import QueryHistory from './pages/QueryHistory';
 import SavedQueries from './pages/SavedQueries';
 import './index.css';
 
+import { ToastContainer } from './components/ui/Toast';
+
 const queryClient = new QueryClient();
 
 function App() {
@@ -23,6 +25,7 @@ function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      <ToastContainer />
     </QueryClientProvider>
   );
 }

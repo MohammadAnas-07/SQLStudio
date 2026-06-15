@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "npx tsx watch src/index.ts",
+    "dev": "npx tsx watch --ignore \"**/*.db\" --ignore \"**/*.db-journal\" --ignore \"../pgdata/**\" src/index.ts",
     "build": "npx tsc",
     "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"

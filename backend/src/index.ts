@@ -17,6 +17,7 @@ const fastify = Fastify({
 
 fastify.register(cors, { 
   origin: '*', // Allow all for development
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 });
 
 fastify.register(websocket);
@@ -216,6 +217,30 @@ fastify.post('/api/saved-queries', async (request, reply) => {
       }
     });
     return { success: true, savedQuery: saved };
+  } catch (error: any) {
+    return reply.status(500).send({ success: false, error: error.message });
+  }
+});
+fastify.delete('/api/saved-queries/:id', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  try {
+    await prisma.savedQuery.delete({
+      where: { id }
+    });
+    return { success: true };
+  } catch (error: any) {
+    return reply.status(500).send({ success: false, error: error.message });
+  }
+});
+
+fastify.delete('/api/database/:name', async (request, reply) => {
+  const { name } = request.params as { name: string };
+  try {
+    await db.exec(`DROP SCHEMA IF EXISTS "${name}" CASCADE;`);
+    if (name === 'public') {
+      await db.exec(`CREATE SCHEMA public;`);
+    }
+    return { success: true };
   } catch (error: any) {
     return reply.status(500).send({ success: false, error: error.message });
   }

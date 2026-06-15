@@ -1,16 +1,41 @@
 import { Search, Save, Play, Folder, MoreVertical, Share2, Trash, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { useToast } from '@/store/toastStore';
 
 export default function SavedQueries() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { success, error } = useToast();
+  const [queryToDelete, setQueryToDelete] = useState<any | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ['savedQueries'],
     queryFn: async () => {
       const res = await fetch('http://localhost:3000/api/saved-queries');
       const json = await res.json();
       return json.success ? json.savedQueries : [];
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`http://localhost:3000/api/saved-queries/${id}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return json;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['savedQueries'] });
+      success('Query deleted', 'The saved query was deleted successfully.');
+    },
+    onError: (err: any) => {
+      error('Failed to delete query', err.message);
     }
   });
 
@@ -87,7 +112,11 @@ export default function SavedQueries() {
                 <button className="p-1.5 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded tooltip-trigger transition-colors" data-tooltip="Share">
                   <Share2 size={14} />
                 </button>
-                <button className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded tooltip-trigger transition-colors" data-tooltip="Delete">
+                <button 
+                  className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded tooltip-trigger transition-colors" 
+                  data-tooltip="Delete"
+                  onClick={() => setQueryToDelete(item)}
+                >
                   <Trash size={14} />
                 </button>
               </div>
@@ -99,6 +128,21 @@ export default function SavedQueries() {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={!!queryToDelete}
+        onClose={() => setQueryToDelete(null)}
+        onConfirm={() => {
+          if (queryToDelete) {
+            deleteMutation.mutate(queryToDelete.id);
+          }
+        }}
+        title="Delete Query"
+        message={`Are you sure you want to delete "${queryToDelete?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDestructive={true}
+      />
     </div>
   );
 }

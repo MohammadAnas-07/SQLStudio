@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
-import { Play, Save, Download, Database, Table as TableIcon, Columns, Key, ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
+import { Play, Save, Download, Database, Table as TableIcon, Columns, Key, ChevronRight, ChevronDown, Loader2, Trash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { useToast } from '@/store/toastStore';
 
 interface ColumnDef { name: string; type: string; isPrimary: boolean; }
 interface TableDef { name: string; columns: ColumnDef[]; }
@@ -11,6 +13,8 @@ interface SchemaDef { name: string; tables: TableDef[]; }
 
 export default function SQLWorkspace() {
   const location = useLocation();
+  const { success, error } = useToast();
+  const [schemaToDelete, setSchemaToDelete] = useState<string | null>(null);
   const [query, setQuery] = useState(location.state?.query || 'SELECT * FROM users LIMIT 10;');
   
   useEffect(() => {
@@ -48,6 +52,24 @@ export default function SQLWorkspace() {
       if (data.success) {
         queryClient.invalidateQueries({ queryKey: ['schema'] });
       }
+    }
+  });
+
+  const deleteDatabaseMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await fetch(`http://localhost:3000/api/database/${name}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return json;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schema'] });
+      success('Database deleted', 'The database and all its tables have been removed.');
+    },
+    onError: (err: any) => {
+      error('Failed to delete database', err.message);
     }
   });
 
@@ -127,9 +149,18 @@ export default function SQLWorkspace() {
             ) : (
               schemaData?.schema.map(schema => (
                 <div key={schema.name} className="mb-4">
-                  <div className="flex items-center gap-2 px-2 py-1 text-sm font-medium text-foreground">
-                    <Database size={14} className="text-muted-foreground" />
-                    {schema.name}
+                  <div className="flex items-center justify-between px-2 py-1 group hover:bg-canvas-night-soft rounded-md">
+                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      <Database size={14} className="text-muted-foreground" />
+                      {schema.name}
+                    </div>
+                    <button
+                      className="p-1 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-all tooltip-trigger"
+                      data-tooltip="Delete Database"
+                      onClick={() => setSchemaToDelete(schema.name)}
+                    >
+                      <Trash size={14} />
+                    </button>
                   </div>
                   <div className="ml-2 mt-1 flex flex-col gap-1">
                     {schema.tables.map(table => (
@@ -255,6 +286,21 @@ export default function SQLWorkspace() {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={!!schemaToDelete}
+        onClose={() => setSchemaToDelete(null)}
+        onConfirm={() => {
+          if (schemaToDelete) {
+            deleteDatabaseMutation.mutate(schemaToDelete);
+          }
+        }}
+        title="Delete Database"
+        message={`Delete database '${schemaToDelete}'? This action cannot be undone and will remove all associated tables, views, and data.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDestructive={true}
+      />
     </div>
   );
 }
