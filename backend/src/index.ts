@@ -1,15 +1,10 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
-import { PGlite } from '@electric-sql/pglite';
-import { PrismaClient } from '@prisma/client';
-import path from 'path';
+import { aiRoutes } from './routes/ai.routes';
+import { prisma, db } from './database';
 
-const prisma = new PrismaClient();
 
-// Create a persistent PGlite instance
-const dbPath = path.resolve(__dirname, '../../pgdata');
-const db = new PGlite(dbPath);
 
 const fastify = Fastify({
   logger: true,
@@ -250,6 +245,7 @@ const start = async () => {
   try {
     // Wait for the db to be ready before listening
     await db.waitReady;
+    await aiRoutes(fastify);
     await fastify.listen({ port: 3000, host: '0.0.0.0' });
     console.log('Backend listening on port 3000');
   } catch (err) {

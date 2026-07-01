@@ -17,6 +17,7 @@ model User {
   connections DatabaseConnection[]
   queries     SavedQuery[]
   history     QueryHistory[]
+  aiConversations AiConversation[]
 }
 
 model DatabaseConnection {
@@ -35,6 +36,7 @@ model DatabaseConnection {
 
   queries   SavedQuery[]
   history   QueryHistory[]
+  aiConversations AiConversation[]
 }
 
 model SavedQuery {
@@ -61,4 +63,26 @@ model QueryHistory {
   userId       String
   user         User               @relation(fields: [userId], references: [id])
   createdAt    DateTime           @default(now())
+}
+
+model AiConversation {
+  id           String             @id @default(uuid())
+  title        String?
+  connectionId String
+  connection   DatabaseConnection @relation(fields: [connectionId], references: [id])
+  userId       String
+  user         User               @relation(fields: [userId], references: [id])
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  messages     AiChatMessage[]
+}
+
+model AiChatMessage {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String         // 'user' or 'model'
+  content        String
+  createdAt      DateTime       @default(now())
 }

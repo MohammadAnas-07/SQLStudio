@@ -17,6 +17,7 @@
     "@electric-sql/pglite": "^0.4.1",
     "@fastify/cors": "^11.2.0",
     "@fastify/websocket": "^11.2.0",
+    "@google/genai": "^2.10.0",
     "@prisma/client": "^6.19.3",
     "better-sqlite3": "^12.10.0",
     "bullmq": "^5.78.0",
