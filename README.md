@@ -49,7 +49,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    subgraph Frontend [Frontend (React + Vite)]
+    subgraph Frontend ["Frontend (React + Vite)"]
         UI1[SQL Editor]
         UI2[Explorer]
         UI3[AI Chat]
@@ -57,7 +57,7 @@ flowchart LR
         UI5[Query Tabs]
     end
 
-    subgraph Backend [Backend (Fastify + Node.js)]
+    subgraph Backend ["Backend (Fastify + Node.js)"]
         API[REST API]
         Auth[Authentication]
         Ctrl[Controllers]
@@ -79,9 +79,9 @@ flowchart LR
     end
 
     subgraph External
-        PG[(PostgreSQL / SQLite)]
+        PG[("PostgreSQL / SQLite")]
         Gemini[Gemini API]
-        VectorStore[(Future Vector Store)]
+        VectorStore[("Future Vector Store")]
     end
 
     UI1 & UI2 & UI3 & UI4 & UI5 <--> API
