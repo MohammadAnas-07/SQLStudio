@@ -12,7 +12,7 @@ SQLStudio is a modern, web-based SQL Integrated Development Environment (IDE) bu
 - **Beautiful Dashboard**: Get a high-level overview of total connections, active users, query metrics, and recent connection activity.
 - **Developer-First Design**: Built with pure CSS tokens, dark mode by default, and inspired by top-tier tools like VS Code, DataGrip, and Supabase Studio.
 
-## 🚀 Performance Benchmarks
+##  Performance Benchmarks
 
 Based on load testing and architectural benchmarks using the **Fastify + SQLite/PGlite** stack:
 
@@ -22,7 +22,7 @@ Based on load testing and architectural benchmarks using the **Fastify + SQLite/
 - **Stress Resiliency**: Maintains a **p99 response time of under 200ms** during load testing (via `k6`/`autocannon`) before rate-limiting occurs.
 - **AI RAG Generation**: Context-aware SQL generation processes in **~1.5 - 3.0 seconds** (dependent on Gemini API).
 
-## 🧠 AI RAG Workflow
+##  AI RAG Workflow
 
 The SQL IDE uses Retrieval-Augmented Generation (RAG) to convert natural language into accurate SQL queries using the current database schema.
 
@@ -55,7 +55,7 @@ flowchart TD
 - **Gemini API:** Processes the augmented prompt to generate syntactically correct and highly optimized SQL.
 - **SQL Validation & Execution:** The generated query is verified and returned to the Monaco Editor, allowing the user to seamlessly execute and analyze the results.
 
-## 🏗️ Project Architecture
+##  Project Architecture
 
 ```mermaid
 flowchart LR
@@ -110,7 +110,7 @@ flowchart LR
     AI -.- VectorStore
 ```
 
-## 🔄 Request Lifecycle
+##  Request Lifecycle
 
 ```mermaid
 sequenceDiagram
@@ -172,7 +172,7 @@ frontend/
 └── package.json
 ```
 
-## ⚙️ AI Request Pipeline
+##  AI Request Pipeline
 
 ```mermaid
 flowchart TD
@@ -186,7 +186,7 @@ flowchart TD
     H --> I([Query History])
 ```
 
-## 💻 Technology Stack
+##  Technology Stack
 
 | Category | Technology | Description |
 | :--- | :--- | :--- |
