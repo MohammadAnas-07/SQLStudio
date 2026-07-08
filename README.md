@@ -2,6 +2,8 @@
 
 SQLStudio is a modern, web-based SQL Integrated Development Environment (IDE) built with a focus on developer experience and premium SaaS aesthetics. It allows users to write, execute, save, and track SQL queries against a true database engine directly from the browser.
 
+![Workspace](docs/workspace.png)
+
 ## Features
 
 - **Monaco Editor Integration**: Write SQL with full syntax highlighting, intelligent autocomplete, and a developer-first dark mode experience.
