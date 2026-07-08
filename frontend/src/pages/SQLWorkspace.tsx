@@ -13,6 +13,8 @@ interface SchemaDef { name: string; tables: TableDef[]; }
 
 import { AIChatSidebar } from '../components/chat/AIChatSidebar';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
+import { useSessionStorage } from '@/lib/hooks/useSessionStorage';
+import { STORAGE_KEYS } from '@/lib/constants/storage';
 
 const ResizeHandle = ({ direction = "horizontal" }: { direction?: "horizontal" | "vertical" }) => {
   return (
@@ -30,7 +32,7 @@ export default function SQLWorkspace() {
   const location = useLocation();
   const { success, error } = useToast();
   const [schemaToDelete, setSchemaToDelete] = useState<string | null>(null);
-  const [query, setQuery] = useState(location.state?.query || 'SELECT * FROM users LIMIT 10;');
+  const [query, setQuery] = useSessionStorage(STORAGE_KEYS.SQL_EDITOR_QUERY, location.state?.query || 'SELECT * FROM users LIMIT 10;');
   const [isAIOpen, setIsAIOpen] = useState(false);
   const [fixedSql, setFixedSql] = useState<string | null>(null);
   const [isResultsOpen, setIsResultsOpen] = useState(true);
