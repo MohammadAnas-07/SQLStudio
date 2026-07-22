@@ -1,32 +1,34 @@
 # SQLStudio
 
-SQLStudio is a modern, web-based SQL Integrated Development Environment (IDE) built with a focus on developer experience and premium SaaS aesthetics. It allows users to write, execute, save, and track SQL queries against a true database engine directly from the browser.
+A web-based SQL IDE. Write, run, save, and track SQL queries against a real database engine, right in the browser.
 
 ![Workspace](docs/workspace.png)
 
 ## Features
 
-- **Monaco Editor Integration**: Write SQL with full syntax highlighting, intelligent autocomplete, and a developer-first dark mode experience.
-- **Real Database Execution**: Execute raw SQL queries directly against a persistent SQLite backend.
-- **Database Schema Explorer**: Browse tables, columns, and primary keys from the live database schema.
-- **Query History**: Automatically logs every query execution along with its status (success/error), execution time, and timestamp.
-- **Saved Queries**: Persist your most important snippets into organized collections and re-run them with a single click.
-- **Beautiful Dashboard**: Get a high-level overview of total connections, active users, query metrics, and recent connection activity.
-- **Developer-First Design**: Built with pure CSS tokens, dark mode by default, and inspired by top-tier tools like VS Code, DataGrip, and Supabase Studio.
+- **Monaco editor**: SQL syntax highlighting, autocomplete, dark mode.
+- **Real database execution**: runs raw SQL against a persistent SQLite backend.
+- **Schema explorer**: browse tables, columns, and primary keys from the live schema.
+- **Query history**: every execution is logged with status, execution time, and timestamp.
+- **Saved queries**: save snippets into collections, re-run them with one click.
+- **Dashboard**: connection counts, active users, query metrics, recent activity.
+- **Dark mode by default**, styled with plain CSS tokens, loosely modeled on VS Code, DataGrip, and Supabase Studio.
 
-##  Performance Benchmarks
+## Performance benchmarks
 
-Based on load testing and architectural benchmarks using the **Fastify + SQLite/PGlite** stack:
+From load testing on the Fastify + SQLite/PGlite stack:
 
-- **Data Capacity**: Smoothly handles datasets of **1,000,000 to 5,000,000 records** per table with properly indexed columns and minimal I/O bottlenecks.
-- **Database Latency**: Ultra-low **~10 - 30ms** response times for standard indexed read/write queries.
-- **API Throughput**: Sustains **100 - 250 concurrent API requests per second**.
-- **Stress Resiliency**: Maintains a **p99 response time of under 200ms** during load testing (via `k6`/`autocannon`) before rate-limiting occurs.
-- **AI RAG Generation**: Context-aware SQL generation processes in **~1.5 - 3.0 seconds** (dependent on Gemini API).
+- **Data capacity**: handles 1,000,000-5,000,000 records per table with indexed columns.
+- **Database latency**: 10-30ms for indexed read/write queries.
+- **API throughput**: 100-250 concurrent requests per second.
+- **Under load**: p99 response time stays under 200ms (tested with k6/autocannon) before rate limiting kicks in.
+- **AI SQL generation**: 1.5-3.0 seconds, depending on the Gemini API.
 
-##  AI RAG Workflow
+If these numbers came from an actual test run rather than an estimate, it's worth keeping the test script or a link to the results somewhere in the repo. A README claiming specific p99 numbers with no way to reproduce them invites skepticism.
 
-The SQL IDE uses Retrieval-Augmented Generation (RAG) to convert natural language into accurate SQL queries using the current database schema.
+## AI RAG workflow
+
+The IDE uses retrieval-augmented generation to turn natural language into SQL, using the current database schema as context.
 
 ```mermaid
 flowchart TD
@@ -51,13 +53,13 @@ flowchart TD
     L -->|Optional Execute Query| M[Results Grid]
 ```
 
-**Workflow Stages:**
-- **Schema Retriever:** Dynamically extracts the active schema and metadata (tables, columns, relations) to prevent AI hallucinations.
-- **Prompt Builder:** Constructs a highly specific system prompt containing the database structure and execution instructions.
-- **Gemini API:** Processes the augmented prompt to generate syntactically correct and highly optimized SQL.
-- **SQL Validation & Execution:** The generated query is verified and returned to the Monaco Editor, allowing the user to seamlessly execute and analyze the results.
+**Workflow stages:**
+- **Schema retriever**: pulls the active schema and metadata (tables, columns, relations) so the model isn't guessing at structure.
+- **Prompt builder**: puts together a system prompt with the schema and execution instructions.
+- **Gemini API**: generates SQL from the prompt.
+- **Validation and execution**: the generated query gets checked, then handed to the Monaco editor for the user to run.
 
-##  Project Architecture
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -112,7 +114,7 @@ flowchart LR
     AI -.- VectorStore
 ```
 
-##  Request Lifecycle
+## Request lifecycle
 
 ```mermaid
 sequenceDiagram
@@ -136,7 +138,7 @@ sequenceDiagram
     Frontend-->>User: Display in Chat / Editor
 ```
 
-## 📁 Folder Structure
+## Folder structure
 
 ```text
 backend/
@@ -174,7 +176,7 @@ frontend/
 └── package.json
 ```
 
-##  AI Request Pipeline
+## AI request pipeline
 
 ```mermaid
 flowchart TD
@@ -188,53 +190,53 @@ flowchart TD
     H --> I([Query History])
 ```
 
-##  Technology Stack
+## Technology stack
 
-| Category | Technology | Description |
+| Category | Technology | Notes |
 | :--- | :--- | :--- |
-| **Frontend** | React 18, Vite, TypeScript | High-performance SPA with fast HMR |
-| **Styling** | Tailwind CSS, Lucide Icons | Utility-first CSS with dark mode tokens |
-| **Editor** | Monaco Editor | VS Code engine with AI autocomplete |
-| **Backend** | Fastify, Node.js | High-throughput async backend API |
-| **Database** | PostgreSQL / SQLite | Primary datastore |
-| **Authentication** | Custom / Mock Auth | Secure session management layer |
-| **AI Model** | Google Gemini | Generative LLM for SQL synthesis |
-| **RAG Engine** | Custom Context Builder | Extracts schema for context-aware queries |
-| **Environment** | Dotenv, Vite Config | Centralized environment management |
-| **Deployment** | Docker (Planned) | Containerized full-stack deployment |
-| **Future** | Vector Store | Embeddings for highly complex semantic search |
+| Frontend | React 18, Vite, TypeScript | SPA with fast HMR |
+| Styling | Tailwind CSS, Lucide Icons | Utility-first CSS, dark mode tokens |
+| Editor | Monaco Editor | VS Code's editor engine, with AI autocomplete |
+| Backend | Fastify, Node.js | Async REST API |
+| Database | PostgreSQL / SQLite | Primary datastore |
+| Authentication | Custom / mock auth | Session management |
+| AI model | Google Gemini | SQL generation |
+| RAG engine | Custom context builder | Extracts schema for context-aware queries |
+| Environment | Dotenv, Vite config | Environment management |
+| Deployment | Docker (planned) | Not yet implemented |
+| Future | Vector store | Embeddings for semantic search |
 
-## Tech Stack
+## Tech stack (detail)
 
 ### Frontend
-- **Framework**: React 18 with Vite and TypeScript
-- **Routing**: React Router DOM v6
-- **State & Data Fetching**: TanStack React Query & Zustand
-- **Editor**: `@monaco-editor/react`
-- **Styling**: Tailwind CSS with a custom design system token architecture (`index.css`)
-- **Icons**: Lucide React
+- React 18 with Vite and TypeScript
+- React Router DOM v6
+- TanStack React Query and Zustand for state and data fetching
+- `@monaco-editor/react`
+- Tailwind CSS with a custom token setup (`index.css`)
+- Lucide React for icons
 
 ### Backend
-- **Framework**: Fastify with Node.js
-- **Database Engine**: `better-sqlite3` and `PGlite` integration
-- **ORM & Metadata Storage**: Prisma ORM with SQLite (`metadata.db`)
-- **Runtime**: `tsx` for seamless TypeScript execution
+- Fastify with Node.js
+- `better-sqlite3` and `PGlite`
+- Prisma ORM with SQLite (`metadata.db`) for metadata storage
+- `tsx` for running TypeScript directly
 
-## Getting Started
+## Getting started
 
 ### Prerequisites
-- Node.js (v18 or higher)
+- Node.js v18 or higher
 - npm
 
 ### Installation
 
-1. **Clone the repository**
+1. Clone the repository
    ```bash
    git clone https://github.com/<YOUR_USERNAME>/<YOUR_REPO_NAME>.git
    cd SQL-editor
    ```
 
-2. **Setup the Backend**
+2. Set up the backend
    ```bash
    cd backend
    npm install
@@ -248,7 +250,7 @@ flowchart TD
    PORT=3000
    ```
 
-   **Initialize the Database & Start Server:**
+   Initialize the database and start the server:
    ```bash
    # Push the Prisma schema to generate the local SQLite database
    npx prisma db push
@@ -259,9 +261,10 @@ flowchart TD
    # Start the backend server
    npm run dev
    ```
-   The backend will run on `http://localhost:3000`.
+   The backend runs on `http://localhost:3000`.
 
-3. **Setup the Frontend**
+3. Set up the frontend
+
    Open a new terminal window:
    ```bash
    cd frontend
@@ -270,15 +273,15 @@ flowchart TD
    # Start the Vite development server
    npm run dev
    ```
-   The frontend will run on `http://localhost:5173`.
+   The frontend runs on `http://localhost:5173`.
 
 ## Usage
 1. Open your browser to `http://localhost:5173`.
-2. Navigate to the **Workspace** using the sidebar.
-3. Write standard SQL (e.g., `CREATE TABLE`, `INSERT`, `SELECT`) in the Monaco editor.
-4. Hit **Run Query** to view the tabular results.
-5. Hit **Save** to persist a query to your library.
-6. Check your **Dashboard**, **Query History**, and **Saved Queries** via the sidebar navigation.
+2. Go to Workspace in the sidebar.
+3. Write standard SQL (`CREATE TABLE`, `INSERT`, `SELECT`, etc.) in the Monaco editor.
+4. Hit Run Query to see the results.
+5. Hit Save to add a query to your library.
+6. Check Dashboard, Query History, and Saved Queries from the sidebar.
 
 ## License
 MIT License
