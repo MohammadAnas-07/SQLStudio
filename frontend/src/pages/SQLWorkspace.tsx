@@ -13,6 +13,7 @@ interface SchemaDef { name: string; tables: TableDef[]; }
 
 import { AIChatSidebar } from '../components/chat/AIChatSidebar';
 import { FileExplorer } from '../components/workspace/FileExplorer';
+import { TerminalPanel } from '../components/workspace/TerminalPanel';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
 import { useSessionStorage } from '@/lib/hooks/useSessionStorage';
 import { STORAGE_KEYS } from '@/lib/constants/storage';
@@ -38,6 +39,7 @@ export default function SQLWorkspace() {
   const [fixedSql, setFixedSql] = useState<string | null>(null);
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
   const [isResultsOpen, setIsResultsOpen] = useState(true);
+  const [activeBottomTab, setActiveBottomTab] = useState<'results' | 'terminal'>('results');
   
   const editorRef = useRef<any>(null);
   
@@ -445,104 +447,127 @@ export default function SQLWorkspace() {
                 <Panel defaultSize="40%" minSize="10%" collapsible={true} id="results">
                   <div className="h-full w-full flex flex-col bg-canvas border-t border-border overflow-hidden">
                     <div className="h-10 border-b border-border flex items-center px-4 justify-between bg-canvas-soft shrink-0">
-                      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Results</div>
-                      {executeMutation.data?.data && (
+                      <div className="flex items-center h-full">
+                        <button 
+                          className={`h-full px-4 text-xs font-medium tracking-wider uppercase border-b-2 transition-colors ${activeBottomTab === 'results' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                          onClick={() => setActiveBottomTab('results')}
+                        >
+                          Results
+                        </button>
+                        <button 
+                          className={`h-full px-4 text-xs font-medium tracking-wider uppercase border-b-2 transition-colors ${activeBottomTab === 'terminal' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                          onClick={() => setActiveBottomTab('terminal')}
+                        >
+                          Terminal
+                        </button>
+                      </div>
+                      
+                      {activeBottomTab === 'results' && executeMutation.data?.data && (
                         <div className="text-xs text-muted-foreground">
                           {executeMutation.data.data.rowCount} rows • {executeMutation.data.data.executionTimeMs}ms
                         </div>
                       )}
                       <div className="flex gap-2 text-muted-foreground">
-                        <button className="hover:text-foreground transition-colors" title="Export CSV">
-                          <Download size={14} />
-                        </button>
+                        {activeBottomTab === 'results' && (
+                          <button className="hover:text-foreground transition-colors" title="Export CSV">
+                            <Download size={14} />
+                          </button>
+                        )}
                         <button 
                           className="hover:text-foreground transition-colors" 
-                          title="Collapse Results"
+                          title="Collapse Panel"
                           onClick={() => setIsResultsOpen(false)}
                         >
                           <ChevronDown size={14} />
                         </button>
                       </div>
                     </div>
-                    <div className="flex-1 overflow-auto bg-canvas relative">
-                      {executeMutation.isPending && (
-                        <div className="absolute inset-0 bg-canvas/50 flex items-center justify-center z-10">
-                          <Loader2 className="animate-spin text-primary" size={32} />
-                        </div>
-                      )}
-                      
-                      {!executeMutation.data ? (
-                        <div className="flex h-full items-center justify-center p-4">
-                          <div className="text-center text-muted-foreground">
-                            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-canvas-night mb-4">
-                              <Play size={20} className="text-muted-foreground ml-1" />
-                            </div>
-                            <p className="text-sm">Run a query to see results</p>
-                          </div>
-                        </div>
-                      ) : !executeMutation.data.success ? (
-                        <div className="flex h-full items-start justify-start p-4">
-                          <div className="text-red-500 bg-red-500/10 p-4 rounded border border-red-500/20 w-full text-sm flex flex-col gap-4 overflow-x-auto">
-                            <div><strong>Error:</strong> {executeMutation.data.error}</div>
-                            
-                            {!fixedSql && (
-                              <Button size="sm" variant="outline" className="self-start text-purple-400 border-purple-500/30 hover:bg-purple-500/10" 
-                                onClick={() => fixMutation.mutate({ sql: query, error: executeMutation.data.error })} 
-                                disabled={fixMutation.isPending}>
-                                {fixMutation.isPending ? <Loader2 size={14} className="mr-2 animate-spin" /> : <Sparkles size={14} className="mr-2" />}
-                                Fix SQL with AI
-                              </Button>
-                            )}
-
-                            {fixedSql && (
-                              <div className="mt-4 border border-purple-500/30 bg-canvas-night p-4 rounded-md">
-                                <div className="text-purple-400 text-xs uppercase tracking-wider mb-2 font-medium">AI Suggested Fix:</div>
-                                <pre className="font-mono text-sm text-foreground overflow-x-auto">{fixedSql}</pre>
-                                <div className="flex gap-2 mt-4">
-                                  <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white" 
-                                    onClick={() => { setQuery(fixedSql); setFixedSql(null); }}>
-                                    Apply Fix
-                                  </Button>
-                                  <Button size="sm" variant="outline" className="border-border text-foreground hover:bg-canvas-soft"
-                                    onClick={() => setFixedSql(null)}>
-                                    Dismiss
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                    
+                    <div className="flex-1 overflow-hidden bg-canvas relative">
+                      {activeBottomTab === 'terminal' ? (
+                        <TerminalPanel />
                       ) : (
-                        <div className="min-w-max">
-                          <table className="w-full text-sm text-left border-collapse">
-                            <thead className="bg-canvas-soft text-muted-foreground sticky top-0 z-10 shadow-sm">
-                              <tr>
-                                <th className="px-4 py-2 border-b border-r border-border font-medium w-12 text-center text-xs">#</th>
-                                {executeMutation.data.data?.columns?.map((col: string) => (
-                                  <th key={col} className="px-4 py-2 border-b border-r border-border font-medium whitespace-nowrap">{col}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {executeMutation.data.data?.rows?.map((row: any, i: number) => (
-                                <tr key={i} className="border-b border-border hover:bg-canvas-soft/50 transition-colors">
-                                  <td className="px-4 py-2 border-r border-border text-muted-foreground text-xs text-center">{i + 1}</td>
-                                  {executeMutation.data.data.columns.map((col: string) => (
-                                    <td key={col} className="px-4 py-2 border-r border-border text-foreground whitespace-nowrap" title={String(row[col])}>
-                                      {String(row[col])}
-                                    </td>
+                        <div className="h-full w-full overflow-auto relative">
+                          {executeMutation.isPending && (
+                            <div className="absolute inset-0 bg-canvas/50 flex items-center justify-center z-10">
+                              <Loader2 className="animate-spin text-primary" size={32} />
+                            </div>
+                          )}
+                          
+                          {!executeMutation.data ? (
+                            <div className="flex h-full items-center justify-center p-4">
+                              <div className="text-center text-muted-foreground">
+                                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-canvas-night mb-4">
+                                  <Play size={20} className="text-muted-foreground ml-1" />
+                                </div>
+                                <p className="text-sm">Run a query to see results</p>
+                              </div>
+                            </div>
+                          ) : !executeMutation.data.success ? (
+                            <div className="flex h-full items-start justify-start p-4">
+                              <div className="text-red-500 bg-red-500/10 p-4 rounded border border-red-500/20 w-full text-sm flex flex-col gap-4 overflow-x-auto">
+                                <div><strong>Error:</strong> {executeMutation.data.error}</div>
+                                
+                                {!fixedSql && (
+                                  <Button size="sm" variant="outline" className="self-start text-purple-400 border-purple-500/30 hover:bg-purple-500/10" 
+                                    onClick={() => fixMutation.mutate({ sql: query, error: executeMutation.data.error })} 
+                                    disabled={fixMutation.isPending}>
+                                    {fixMutation.isPending ? <Loader2 size={14} className="mr-2 animate-spin" /> : <Sparkles size={14} className="mr-2" />}
+                                    Fix SQL with AI
+                                  </Button>
+                                )}
+
+                                {fixedSql && (
+                                  <div className="mt-4 border border-purple-500/30 bg-canvas-night p-4 rounded-md">
+                                    <div className="text-purple-400 text-xs uppercase tracking-wider mb-2 font-medium">AI Suggested Fix:</div>
+                                    <pre className="font-mono text-sm text-foreground overflow-x-auto">{fixedSql}</pre>
+                                    <div className="flex gap-2 mt-4">
+                                      <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white" 
+                                        onClick={() => { setQuery(fixedSql); setFixedSql(null); }}>
+                                        Apply Fix
+                                      </Button>
+                                      <Button size="sm" variant="outline" className="border-border text-foreground hover:bg-canvas-soft"
+                                        onClick={() => setFixedSql(null)}>
+                                        Dismiss
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="min-w-max">
+                              <table className="w-full text-sm text-left border-collapse">
+                                <thead className="bg-canvas-soft text-muted-foreground sticky top-0 z-10 shadow-sm">
+                                  <tr>
+                                    <th className="px-4 py-2 border-b border-r border-border font-medium w-12 text-center text-xs">#</th>
+                                    {executeMutation.data.data?.columns?.map((col: string) => (
+                                      <th key={col} className="px-4 py-2 border-b border-r border-border font-medium whitespace-nowrap">{col}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {executeMutation.data.data?.rows?.map((row: any, i: number) => (
+                                    <tr key={i} className="border-b border-border hover:bg-canvas-soft/50 transition-colors">
+                                      <td className="px-4 py-2 border-r border-border text-muted-foreground text-xs text-center">{i + 1}</td>
+                                      {executeMutation.data.data.columns.map((col: string) => (
+                                        <td key={col} className="px-4 py-2 border-r border-border text-foreground whitespace-nowrap" title={String(row[col])}>
+                                          {String(row[col])}
+                                        </td>
+                                      ))}
+                                    </tr>
                                   ))}
-                                </tr>
-                              ))}
-                              {executeMutation.data.data?.rows?.length === 0 && (
-                                <tr>
-                                  <td colSpan={(executeMutation.data.data?.columns?.length || 0) + 1} className="px-4 py-8 text-center text-muted-foreground">
-                                    No rows returned
-                                  </td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </table>
+                                  {executeMutation.data.data?.rows?.length === 0 && (
+                                    <tr>
+                                      <td colSpan={(executeMutation.data.data?.columns?.length || 0) + 1} className="px-4 py-8 text-center text-muted-foreground">
+                                        No rows returned
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
