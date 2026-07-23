@@ -12,6 +12,7 @@ interface TableDef { name: string; columns: ColumnDef[]; }
 interface SchemaDef { name: string; tables: TableDef[]; }
 
 import { AIChatSidebar } from '../components/chat/AIChatSidebar';
+import { FileExplorer } from '../components/workspace/FileExplorer';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
 import { useSessionStorage } from '@/lib/hooks/useSessionStorage';
 import { STORAGE_KEYS } from '@/lib/constants/storage';
@@ -35,6 +36,7 @@ export default function SQLWorkspace() {
   const [query, setQuery] = useSessionStorage(STORAGE_KEYS.SQL_EDITOR_QUERY, location.state?.query || 'SELECT * FROM users LIMIT 10;');
   const [isAIOpen, setIsAIOpen] = useState(false);
   const [fixedSql, setFixedSql] = useState<string | null>(null);
+  const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
   const [isResultsOpen, setIsResultsOpen] = useState(true);
   
   const editorRef = useRef<any>(null);
@@ -149,6 +151,25 @@ export default function SQLWorkspace() {
 
   const handleSaveQuery = async () => {
     if (!query.trim()) return;
+
+    if (activeFilePath) {
+      try {
+        const res = await fetch('http://localhost:3000/api/files/content', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: activeFilePath, content: query })
+        });
+        const json = await res.json();
+        if (json.success) {
+          success('File Saved', `${activeFilePath} has been updated.`);
+        } else {
+          error('Failed to save file', json.error);
+        }
+      } catch (err: any) {
+        error('Error saving file', err.message);
+      }
+      return;
+    }
     
     // In a full implementation, we'd open a modal to ask for the query name.
     // For now, we'll auto-generate a name.
@@ -167,13 +188,27 @@ export default function SQLWorkspace() {
       
       const json = await res.json();
       if (json.success) {
-        // You could add a toast notification here
-        console.log('Query saved successfully');
+        success('Query Saved', 'Your query has been saved successfully.');
       } else {
-        console.error('Failed to save query:', json.error);
+        error('Failed to save query', json.error);
       }
-    } catch (err) {
-      console.error('Error saving query:', err);
+    } catch (err: any) {
+      error('Error saving query', err.message);
+    }
+  };
+
+  const handleFileSelect = async (path: string) => {
+    try {
+      const res = await fetch(`http://localhost:3000/api/files/content?path=${encodeURIComponent(path)}`);
+      const data = await res.json();
+      if (data.success) {
+        setQuery(data.content);
+        setActiveFilePath(path);
+      } else {
+        error('Failed to load file', data.error);
+      }
+    } catch (err: any) {
+      error('Failed to load file', err.message);
     }
   };
 
@@ -261,7 +296,7 @@ export default function SQLWorkspace() {
       {/* Top action bar */}
       <div className="h-12 border-b border-border bg-canvas flex items-center px-4 justify-between shrink-0 sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <div className="text-sm font-medium text-foreground">Query 1</div>
+          <div className="text-sm font-medium text-foreground">{activeFilePath ? activeFilePath.split('/').pop() : 'Query 1'}</div>
           <div className="h-4 w-px bg-border"></div>
           <select className="bg-transparent text-sm border-none outline-none text-muted-foreground cursor-pointer">
             <option>PostgreSQL - Local</option>
@@ -301,11 +336,11 @@ export default function SQLWorkspace() {
       <div className="flex-1 flex overflow-hidden">
         <PanelGroup orientation="horizontal" id="sql-workspace-layout">
           
-          {/* Schema Explorer Sidebar */}
+          {/* Schema & File Explorer Sidebar */}
           <Panel defaultSize="16%" minSize="10%" maxSize="30%" collapsible={true} id="explorer">
             <div className="h-full bg-canvas-soft flex flex-col shrink-0 overflow-hidden">
               <div className="h-10 border-b border-border flex items-center px-4 font-medium text-xs text-muted-foreground uppercase tracking-wider shrink-0">
-                Explorer
+                Database
               </div>
               <div className="flex-1 overflow-auto p-2">
                 {isLoadingSchema ? (
@@ -354,6 +389,12 @@ export default function SQLWorkspace() {
                     </div>
                   ))
                 )}
+              </div>
+              <div className="h-10 border-t border-b border-border flex items-center px-4 font-medium text-xs text-muted-foreground uppercase tracking-wider shrink-0">
+                Workspace
+              </div>
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <FileExplorer onFileSelect={handleFileSelect} />
               </div>
             </div>
           </Panel>
