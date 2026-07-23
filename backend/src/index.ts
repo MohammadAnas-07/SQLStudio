@@ -26,40 +26,42 @@ fastify.get('/ping', async (request, reply) => {
   return { status: 'ok', service: 'sqlstudio-backend' };
 });
 
-fastify.get('/api/terminal', { websocket: true }, (connection, req) => {
-  const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
-  const ptyProcess = pty.spawn(shell, [], {
-    name: 'xterm-color',
-    cols: 80,
-    rows: 30,
-    cwd: WORKSPACE_ROOT,
-    env: process.env
-  });
-  
-  ptyProcess.onData((data) => {
-    connection.send(data);
-  });
-  
-  connection.on('message', (msg: any) => {
-    const dataStr = msg.toString();
-    if (dataStr.startsWith('{"type":"resize"')) {
-      try {
-        const resizeData = JSON.parse(dataStr);
-        if (resizeData.cols && resizeData.rows) {
-          ptyProcess.resize(resizeData.cols, resizeData.rows);
+fastify.register(async (app) => {
+  app.get('/api/terminal', { websocket: true }, (connection, req) => {
+    const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
+    const ptyProcess = pty.spawn(shell, [], {
+      name: 'xterm-color',
+      cols: 80,
+      rows: 30,
+      cwd: WORKSPACE_ROOT,
+      env: process.env
+    });
+    
+    ptyProcess.onData((data) => {
+      connection.send(data);
+    });
+    
+    connection.on('message', (msg: any) => {
+      const dataStr = msg.toString();
+      if (dataStr.startsWith('{"type":"resize"')) {
+        try {
+          const resizeData = JSON.parse(dataStr);
+          if (resizeData.cols && resizeData.rows) {
+            ptyProcess.resize(resizeData.cols, resizeData.rows);
+          }
+        } catch (e) {
+          // ignore
         }
-      } catch (e) {
-        // ignore
+      } else {
+        ptyProcess.write(dataStr);
       }
-    } else {
-      ptyProcess.write(dataStr);
-    }
-  });
-  
-  connection.on('close', () => {
-    try {
-      ptyProcess.kill();
-    } catch(e) {}
+    });
+    
+    connection.on('close', () => {
+      try {
+        ptyProcess.kill();
+      } catch(e) {}
+    });
   });
 });
 

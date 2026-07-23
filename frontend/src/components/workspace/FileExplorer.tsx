@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Folder, File as FileIcon, FolderPlus, FilePlus, Edit2, Trash2, ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
+import { Folder, File as FileIcon, FolderPlus, FilePlus, Edit2, Trash2, ChevronRight, ChevronDown, Loader2, RefreshCw } from 'lucide-react';
 
 interface FileNode {
   name: string;
@@ -20,7 +20,8 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
     queryFn: async () => {
       const res = await fetch('http://localhost:3000/api/files');
       return res.json() as Promise<{ success: boolean; files: FileNode[] }>;
-    }
+    },
+    refetchInterval: 2000 // Poll every 2 seconds to catch changes from terminal
   });
 
   useEffect(() => {
@@ -143,6 +144,16 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
 
   return (
     <div className="flex flex-col h-full bg-canvas-soft relative select-none">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+        <span className="text-xs font-semibold text-muted-foreground tracking-wider">EXPLORER</span>
+        <button 
+          onClick={() => queryClient.invalidateQueries({ queryKey: ['files'] })}
+          className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-canvas-night-soft transition-colors"
+          title="Refresh Explorer"
+        >
+          <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
+        </button>
+      </div>
       <div 
         className="flex-1 overflow-auto p-2 min-h-[100px]"
         onContextMenu={(e) => {

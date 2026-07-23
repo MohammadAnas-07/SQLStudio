@@ -31,7 +31,11 @@ export function TerminalPanel() {
     term.current.open(terminalRef.current);
     
     // Connect to WebSocket
-    ws.current = new WebSocket('ws://localhost:3000/api/terminal');
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.hostname;
+    // Assume backend is on port 3000 on the same host
+    const wsUrl = `${protocol}//${host}:3000/api/terminal`;
+    ws.current = new WebSocket(wsUrl);
     
     ws.current.onopen = () => {
       // fit once connected
@@ -45,8 +49,20 @@ export function TerminalPanel() {
       }
     };
     
-    ws.current.onmessage = (event) => {
-      term.current?.write(event.data);
+    ws.current.onmessage = async (event) => {
+      let data = event.data;
+      if (data instanceof Blob) {
+        data = await data.text();
+      }
+      term.current?.write(data);
+    };
+    
+    ws.current.onerror = () => {
+      term.current?.write('\r\n\x1b[31m[WebSocket Error] Connection failed.\x1b[0m\r\n');
+    };
+    
+    ws.current.onclose = () => {
+      term.current?.write('\r\n\x1b[33m[Terminal] Connection closed.\x1b[0m\r\n');
     };
     
     term.current.onData((data) => {
