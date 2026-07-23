@@ -9,7 +9,7 @@ interface FileNode {
   children?: FileNode[];
 }
 
-export function FileExplorer() {
+export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) => void }) {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, path: string, isDir: boolean } | null>(null);
   const queryClient = useQueryClient();
@@ -113,7 +113,13 @@ export function FileExplorer() {
         <div 
           className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:bg-canvas-night-soft hover:text-foreground cursor-pointer rounded-sm"
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
-          onClick={() => node.isDir && toggleFolder(node.path)}
+          onClick={() => {
+            if (node.isDir) {
+              toggleFolder(node.path);
+            } else if (onFileSelect) {
+              onFileSelect(node.path);
+            }
+          }}
           onContextMenu={(e) => handleContextMenu(e, node.path, node.isDir)}
         >
           <div className="shrink-0 w-4 flex items-center justify-center">

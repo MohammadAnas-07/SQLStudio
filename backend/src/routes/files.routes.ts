@@ -131,4 +131,29 @@ export const fileRoutes = async (fastify: FastifyInstance) => {
     }
   });
 
+  fastify.get('/api/files/content', async (request, reply) => {
+    const { path: reqPath } = request.query as { path: string };
+    try {
+      const targetPath = resolveAndValidatePath(reqPath);
+      const stat = await fs.stat(targetPath);
+      if (stat.isDirectory()) throw new Error('Path is a directory');
+      
+      const content = await fs.readFile(targetPath, 'utf-8');
+      return { success: true, content };
+    } catch (error: any) {
+      return reply.status(400).send({ success: false, error: error.message });
+    }
+  });
+
+  fastify.put('/api/files/content', async (request, reply) => {
+    const { path: reqPath, content } = request.body as { path: string, content: string };
+    try {
+      const targetPath = resolveAndValidatePath(reqPath);
+      await fs.writeFile(targetPath, content, 'utf-8');
+      return { success: true };
+    } catch (error: any) {
+      return reply.status(400).send({ success: false, error: error.message });
+    }
+  });
+
 };
