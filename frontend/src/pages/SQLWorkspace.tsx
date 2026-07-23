@@ -12,6 +12,7 @@ interface TableDef { name: string; columns: ColumnDef[]; }
 interface SchemaDef { name: string; tables: TableDef[]; }
 
 import { AIChatSidebar } from '../components/chat/AIChatSidebar';
+import { FileExplorer } from '../components/workspace/FileExplorer';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
 import { useSessionStorage } from '@/lib/hooks/useSessionStorage';
 import { STORAGE_KEYS } from '@/lib/constants/storage';
@@ -301,11 +302,11 @@ export default function SQLWorkspace() {
       <div className="flex-1 flex overflow-hidden">
         <PanelGroup orientation="horizontal" id="sql-workspace-layout">
           
-          {/* Schema Explorer Sidebar */}
+          {/* Schema & File Explorer Sidebar */}
           <Panel defaultSize="16%" minSize="10%" maxSize="30%" collapsible={true} id="explorer">
             <div className="h-full bg-canvas-soft flex flex-col shrink-0 overflow-hidden">
               <div className="h-10 border-b border-border flex items-center px-4 font-medium text-xs text-muted-foreground uppercase tracking-wider shrink-0">
-                Explorer
+                Database
               </div>
               <div className="flex-1 overflow-auto p-2">
                 {isLoadingSchema ? (
@@ -354,6 +355,12 @@ export default function SQLWorkspace() {
                     </div>
                   ))
                 )}
+              </div>
+              <div className="h-10 border-t border-b border-border flex items-center px-4 font-medium text-xs text-muted-foreground uppercase tracking-wider shrink-0">
+                Workspace
+              </div>
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <FileExplorer />
               </div>
             </div>
           </Panel>

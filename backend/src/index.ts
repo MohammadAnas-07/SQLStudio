@@ -2,8 +2,8 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import { aiRoutes } from './routes/ai.routes';
+import { fileRoutes } from './routes/files.routes';
 import { prisma, db } from './database';
-
 
 
 const fastify = Fastify({
@@ -246,6 +246,7 @@ const start = async () => {
     // Wait for the db to be ready before listening
     await db.waitReady;
     await aiRoutes(fastify);
+    await fileRoutes(fastify);
     await fastify.listen({ port: 3000, host: '0.0.0.0' });
     console.log('Backend listening on port 3000');
   } catch (err) {
