@@ -184,6 +184,38 @@ export default function SQLWorkspace() {
   const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
     
+    // Add "Run Selected Query" context menu action
+    editor.addAction({
+      id: 'run-selected-query',
+      label: 'Run Selected Query',
+      keybindings: [
+        monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter
+      ],
+      contextMenuGroupId: 'navigation',
+      contextMenuOrder: 1.5,
+      precondition: 'editorHasSelection',
+      run: (ed: Parameters<typeof handleEditorDidMount>[0]) => {
+        const selection = ed.getSelection();
+        const model = ed.getModel();
+        if (selection && !selection.isEmpty()) {
+          const selectedText = model.getValueInRange(selection);
+          executeMutation.mutate(selectedText);
+        }
+      }
+    });
+
+    // Add "Run All" context menu action (shown when no selection)
+    editor.addAction({
+      id: 'run-all-query',
+      label: 'Run All',
+      contextMenuGroupId: 'navigation',
+      contextMenuOrder: 1.6,
+      precondition: '!editorHasSelection',
+      run: () => {
+        handleRunQuery();
+      }
+    });
+
     // Add AI Autocomplete Action
     editor.addAction({
       id: 'ai-autocomplete',
@@ -209,7 +241,7 @@ export default function SQLWorkspace() {
           });
           const data = await res.json();
           if (data.success) {
-            let completion = data.response.replace(/```sql|```/g, '').trim();
+            const completion = data.response.replace(/```sql|```/g, '').trim();
             // Insert completion
             editor.executeEdits('ai-autocomplete', [{
               range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
