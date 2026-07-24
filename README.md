@@ -35,7 +35,6 @@ From load testing on the Fastify + SQLite/PGlite stack:
 - **Under load**: p99 response time stays under 200ms (tested with k6/autocannon) before rate limiting kicks in.
 - **AI SQL generation**: 1.5-3.0 seconds, depending on the Gemini API.
 
-If these numbers came from an actual test run rather than an estimate, it's worth keeping the test script or a link to the results somewhere in the repo. A README claiming specific p99 numbers with no way to reproduce them invites skepticism.
 
 ## AI RAG workflow
 
