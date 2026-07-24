@@ -99,6 +99,33 @@ export async function gitRoutes(fastify: FastifyInstance) {
     }
   });
 
+  fastify.post('/api/git/unstage', async (request, reply) => {
+    const { files } = request.body as { files: string | string[] };
+    if (!files) return reply.status(400).send({ success: false, error: 'Files are required' });
+    try {
+      await git.reset(['HEAD', ...(Array.isArray(files) ? files : [files])]);
+      return { success: true, message: 'Files unstaged' };
+    } catch (error: any) {
+      return reply.status(500).send({ success: false, error: error.message });
+    }
+  });
+
+  fastify.get('/api/git/show', async (request, reply) => {
+    const { path: filePath } = request.query as { path?: string };
+    if (!filePath) return reply.status(400).send({ success: false, error: 'Path is required' });
+    try {
+      const content = await git.show([`HEAD:${filePath}`]);
+      return { success: true, content };
+    } catch (error: any) {
+      if (error.message.includes("exists on disk, but not in 'HEAD'") || 
+          error.message.includes("does not exist in 'HEAD'") || 
+          error.message.includes("unknown revision")) {
+        return { success: true, content: '' };
+      }
+      return reply.status(500).send({ success: false, error: error.message });
+    }
+  });
+
   fastify.post('/api/git/remote', async (request, reply) => {
     const { name, url } = request.body as { name: string, url: string };
     if (!name || !url) return reply.status(400).send({ success: false, error: 'Remote name and url required' });
