@@ -13,6 +13,17 @@ A web-based SQL IDE. Write, run, save, and track SQL queries against a real data
 - **Saved queries**: save snippets into collections, re-run them with one click.
 - **Dashboard**: connection counts, active users, query metrics, recent activity.
 - **Dark mode by default**, styled with plain CSS tokens, loosely modeled on VS Code, DataGrip, and Supabase Studio.
+- **Run selected query**: highlight part of a script and run just that selection, without executing the whole file.
+- **File and folder management**: create, rename, and delete files/folders in the workspace explorer, backed by an API that keeps everything scoped to the workspace folder.
+- **Integrated terminal**: a real shell (xterm.js + node-pty), running in the workspace directory. This is a full, unrestricted shell — not a sandboxed command runner — so anything typed into it runs directly on your machine, the same as opening a normal terminal. Local-only, not exposed on the network.
+- **Git integration**: init, status, add, commit, log, branch, checkout, diff, and push to GitHub, all scoped to the user's own workspace folder, separate from the app's own codebase.
+### Git integration, in more detail
+ 
+Each user's workspace maps to its own folder on disk (e.g. under Desktop), kept separate from the application's source code. Git operations run through `simple-git`, a typed Node.js library, instead of shell string commands — that avoids the command injection risk you'd get from building shell commands out of user input.
+ 
+Supported: `init`, `status`, `add`, `commit`, `log`, `branch`, `checkout`, `diff`, `remote`, `push`.
+ 
+This is built for **local, single-user use**. There's no per-user sandboxing or container isolation — if you deploy this for multiple people or expose it on a network, the terminal and git features would need a real security review first (containerized shells, path validation, auth on pushes, etc.). As a local dev tool, this setup is fine.
 
 ## Performance benchmarks
 
