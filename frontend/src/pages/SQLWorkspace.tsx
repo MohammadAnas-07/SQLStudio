@@ -13,10 +13,13 @@ interface SchemaDef { name: string; tables: TableDef[]; }
 
 import { AIChatSidebar } from '../components/chat/AIChatSidebar';
 import { FileExplorer } from '../components/workspace/FileExplorer';
+import { SourceControl } from '../components/workspace/SourceControl';
 import { TerminalPanel } from '../components/workspace/TerminalPanel';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
 import { useSessionStorage } from '@/lib/hooks/useSessionStorage';
+import { DiffEditor } from '@monaco-editor/react';
 import { STORAGE_KEYS } from '@/lib/constants/storage';
+import { GitBranch, Files as FilesIcon } from 'lucide-react';
 
 const ResizeHandle = ({ direction = "horizontal" }: { direction?: "horizontal" | "vertical" }) => {
   return (
@@ -40,6 +43,10 @@ export default function SQLWorkspace() {
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
   const [isResultsOpen, setIsResultsOpen] = useState(true);
   const [activeBottomTab, setActiveBottomTab] = useState<'results' | 'terminal'>('results');
+  
+  const [activeSidebarTab, setActiveSidebarTab] = useState<'explorer' | 'git'>('explorer');
+  const [diffMode, setDiffMode] = useState(false);
+  const [originalContent, setOriginalContent] = useState('');
   
   const editorRef = useRef<any>(null);
   
@@ -206,11 +213,34 @@ export default function SQLWorkspace() {
       if (data.success) {
         setQuery(data.content);
         setActiveFilePath(path);
+        setDiffMode(false);
       } else {
         error('Failed to load file', data.error);
       }
     } catch (err: any) {
       error('Failed to load file', err.message);
+    }
+  };
+
+  const handleGitFileSelect = async (path: string) => {
+    try {
+      const [localRes, gitRes] = await Promise.all([
+        fetch(`http://localhost:3000/api/files/content?path=${encodeURIComponent(path)}`),
+        fetch(`http://localhost:3000/api/git/show?path=${encodeURIComponent(path)}`)
+      ]);
+      const localData = await localRes.json();
+      const gitData = await gitRes.json();
+      
+      if (localData.success && gitData.success) {
+        setQuery(localData.content);
+        setOriginalContent(gitData.content || '');
+        setActiveFilePath(path);
+        setDiffMode(true);
+      } else {
+        error('Failed to load diff', localData.error || gitData.error);
+      }
+    } catch (err: any) {
+      error('Failed to load diff', err.message);
     }
   };
 
@@ -298,7 +328,10 @@ export default function SQLWorkspace() {
       {/* Top action bar */}
       <div className="h-12 border-b border-border bg-canvas flex items-center px-4 justify-between shrink-0 sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <div className="text-sm font-medium text-foreground">{activeFilePath ? activeFilePath.split('/').pop() : 'Query 1'}</div>
+          <div className="flex items-center gap-2">
+            <div className="text-sm font-medium text-foreground">{activeFilePath ? activeFilePath.split('/').pop() : 'Query 1'}</div>
+            {diffMode && <span className="text-[10px] bg-yellow-500/20 text-yellow-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Diff</span>}
+          </div>
           <div className="h-4 w-px bg-border"></div>
           <select className="bg-transparent text-sm border-none outline-none text-muted-foreground cursor-pointer">
             <option>PostgreSQL - Local</option>
@@ -338,65 +371,92 @@ export default function SQLWorkspace() {
       <div className="flex-1 flex overflow-hidden">
         <PanelGroup orientation="horizontal" id="sql-workspace-layout">
           
-          {/* Schema & File Explorer Sidebar */}
-          <Panel defaultSize="16%" minSize="10%" maxSize="30%" collapsible={true} id="explorer">
-            <div className="h-full bg-canvas-soft flex flex-col shrink-0 overflow-hidden">
-              <div className="h-10 border-b border-border flex items-center px-4 font-medium text-xs text-muted-foreground uppercase tracking-wider shrink-0">
-                Database
+          {/* Schema & File Explorer / Source Control Sidebar */}
+          <Panel defaultSize="20%" minSize="10%" maxSize="40%" collapsible={true} id="explorer">
+            <div className="h-full bg-canvas-soft flex overflow-hidden">
+              {/* Activity Bar */}
+              <div className="w-12 bg-canvas-night flex flex-col items-center py-2 border-r border-border shrink-0 gap-2">
+                <button 
+                  onClick={() => setActiveSidebarTab('explorer')} 
+                  className={`p-2 rounded transition-colors ${activeSidebarTab === 'explorer' ? 'text-primary bg-canvas-soft' : 'text-muted-foreground hover:text-foreground hover:bg-canvas-night-soft'}`}
+                  title="Explorer"
+                >
+                  <FilesIcon size={20} strokeWidth={1.5} />
+                </button>
+                <button 
+                  onClick={() => setActiveSidebarTab('git')} 
+                  className={`p-2 rounded transition-colors ${activeSidebarTab === 'git' ? 'text-primary bg-canvas-soft' : 'text-muted-foreground hover:text-foreground hover:bg-canvas-night-soft'}`}
+                  title="Source Control"
+                >
+                  <GitBranch size={20} strokeWidth={1.5} />
+                </button>
               </div>
-              <div className="flex-1 overflow-auto p-2">
-                {isLoadingSchema ? (
-                  <div className="flex items-center justify-center h-20"><Loader2 className="animate-spin text-muted-foreground" size={20} /></div>
-                ) : (
-                  schemaData?.schema.map(schema => (
-                    <div key={schema.name} className="mb-4">
-                      <div className="flex items-center justify-between px-2 py-1 group hover:bg-canvas-night-soft rounded-md">
-                        <div className="flex items-center gap-2 text-sm font-medium text-foreground truncate w-full">
-                          <Database size={14} className="text-muted-foreground shrink-0" />
-                          <span className="truncate">{schema.name}</span>
-                        </div>
-                        <button
-                          className="p-1 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-all tooltip-trigger shrink-0"
-                          data-tooltip="Delete Database"
-                          onClick={() => setSchemaToDelete(schema.name)}
-                        >
-                          <Trash size={14} />
-                        </button>
-                      </div>
-                      <div className="ml-2 mt-1 flex flex-col gap-1">
-                        {schema.tables.map(table => (
-                          <div key={table.name}>
-                            <div 
-                              className="flex items-center gap-2 px-2 py-1 text-sm text-muted-foreground hover:bg-canvas-night-soft hover:text-foreground cursor-pointer rounded-sm"
-                              onClick={() => toggleTable(table.name)}
-                            >
-                              <div className="shrink-0">{expandedTables[table.name] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</div>
-                              <TableIcon size={14} className="text-primary-soft shrink-0" />
-                              <span className="truncate">{table.name}</span>
-                            </div>
-                            {expandedTables[table.name] && (
-                              <div className="ml-6 flex flex-col gap-1 mt-1 border-l border-border pl-2">
-                                {table.columns.map(col => (
-                                  <div key={col.name} className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
-                                    <div className="shrink-0">{col.isPrimary ? <Key size={12} className="text-yellow-500" /> : <Columns size={12} className="text-muted-foreground" />}</div>
-                                    <span className="truncate">{col.name}</span>
-                                    <span className="text-[10px] text-ink-faint ml-auto shrink-0">{col.type}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+
+              {/* Sidebar Content */}
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {activeSidebarTab === 'explorer' ? (
+                  <>
+                    <div className="h-10 border-b border-border flex items-center px-4 font-medium text-xs text-muted-foreground uppercase tracking-wider shrink-0">
+                      Database
                     </div>
-                  ))
+                    <div className="flex-1 overflow-auto p-2">
+                      {isLoadingSchema ? (
+                        <div className="flex items-center justify-center h-20"><Loader2 className="animate-spin text-muted-foreground" size={20} /></div>
+                      ) : (
+                        schemaData?.schema.map(schema => (
+                          <div key={schema.name} className="mb-4">
+                            <div className="flex items-center justify-between px-2 py-1 group hover:bg-canvas-night-soft rounded-md">
+                              <div className="flex items-center gap-2 text-sm font-medium text-foreground truncate w-full">
+                                <Database size={14} className="text-muted-foreground shrink-0" />
+                                <span className="truncate">{schema.name}</span>
+                              </div>
+                              <button
+                                className="p-1 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-all tooltip-trigger shrink-0"
+                                data-tooltip="Delete Database"
+                                onClick={() => setSchemaToDelete(schema.name)}
+                              >
+                                <Trash size={14} />
+                              </button>
+                            </div>
+                            <div className="ml-2 mt-1 flex flex-col gap-1">
+                              {schema.tables.map(table => (
+                                <div key={table.name}>
+                                  <div 
+                                    className="flex items-center gap-2 px-2 py-1 text-sm text-muted-foreground hover:bg-canvas-night-soft hover:text-foreground cursor-pointer rounded-sm"
+                                    onClick={() => toggleTable(table.name)}
+                                  >
+                                    <div className="shrink-0">{expandedTables[table.name] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</div>
+                                    <TableIcon size={14} className="text-primary-soft shrink-0" />
+                                    <span className="truncate">{table.name}</span>
+                                  </div>
+                                  {expandedTables[table.name] && (
+                                    <div className="ml-6 flex flex-col gap-1 mt-1 border-l border-border pl-2">
+                                      {table.columns.map(col => (
+                                        <div key={col.name} className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
+                                          <div className="shrink-0">{col.isPrimary ? <Key size={12} className="text-yellow-500" /> : <Columns size={12} className="text-muted-foreground" />}</div>
+                                          <span className="truncate">{col.name}</span>
+                                          <span className="text-[10px] text-ink-faint ml-auto shrink-0">{col.type}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="h-10 border-t border-b border-border flex items-center px-4 font-medium text-xs text-muted-foreground uppercase tracking-wider shrink-0">
+                      Workspace
+                    </div>
+                    <div className="flex-1 overflow-hidden flex flex-col">
+                      <FileExplorer onFileSelect={handleFileSelect} />
+                    </div>
+                  </>
+                ) : (
+                  <SourceControl onFileSelect={handleGitFileSelect} />
                 )}
-              </div>
-              <div className="h-10 border-t border-b border-border flex items-center px-4 font-medium text-xs text-muted-foreground uppercase tracking-wider shrink-0">
-                Workspace
-              </div>
-              <div className="flex-1 overflow-hidden flex flex-col">
-                <FileExplorer onFileSelect={handleFileSelect} />
               </div>
             </div>
           </Panel>
@@ -409,23 +469,44 @@ export default function SQLWorkspace() {
               {/* Editor Area */}
               <Panel defaultSize={isResultsOpen ? "60%" : "100%"} minSize="20%" id="editor">
                 <div className="h-full w-full bg-canvas-night relative overflow-hidden flex flex-col">
-                  <Editor
-                    height="100%"
-                    defaultLanguage="sql"
-                    theme="vs-dark"
-                    value={query}
-                    onChange={(value) => setQuery(value || '')}
-                    onMount={handleEditorDidMount}
-                    options={{
-                      minimap: { enabled: false },
-                      fontSize: 14,
-                      fontFamily: 'ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Monospace", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Courier New", monospace',
-                      padding: { top: 0, bottom: 0 },
-                      scrollBeyondLastLine: false,
-                      smoothScrolling: true,
-                      automaticLayout: true,
-                    }}
-                  />
+                  {diffMode ? (
+                    <DiffEditor
+                      height="100%"
+                      language="sql"
+                      theme="vs-dark"
+                      original={originalContent}
+                      modified={query}
+                      onMount={(editor) => handleEditorDidMount(editor.getModifiedEditor(), window.monaco)}
+                      options={{
+                        minimap: { enabled: false },
+                        fontSize: 14,
+                        fontFamily: 'ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Monospace", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Courier New", monospace',
+                        padding: { top: 0, bottom: 0 },
+                        scrollBeyondLastLine: false,
+                        renderSideBySide: true,
+                        automaticLayout: true,
+                        readOnly: true
+                      }}
+                    />
+                  ) : (
+                    <Editor
+                      height="100%"
+                      defaultLanguage="sql"
+                      theme="vs-dark"
+                      value={query}
+                      onChange={(value) => setQuery(value || '')}
+                      onMount={handleEditorDidMount}
+                      options={{
+                        minimap: { enabled: false },
+                        fontSize: 14,
+                        fontFamily: 'ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Monospace", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Courier New", monospace',
+                        padding: { top: 0, bottom: 0 },
+                        scrollBeyondLastLine: false,
+                        smoothScrolling: true,
+                        automaticLayout: true,
+                      }}
+                    />
+                  )}
                   
                   {!isResultsOpen && (
                     <Button 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Folder, File as FileIcon, FolderPlus, FilePlus, Edit2, Trash2, ChevronRight, ChevronDown, Loader2, RefreshCw } from 'lucide-react';
+import { useGitStatus } from '@/lib/hooks/useGit';
 
 interface FileNode {
   name: string;
@@ -23,6 +24,49 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
     },
     refetchInterval: 2000 // Poll every 2 seconds to catch changes from terminal
   });
+
+  const { data: gitStatus } = useGitStatus();
+
+  // Compute file statuses map
+  const fileStatuses = React.useMemo(() => {
+    const map: Record<string, { letter: string, color: string }> = {};
+    if (!gitStatus) return map;
+    
+    gitStatus.files.forEach(f => {
+      let letter = '';
+      let color = '';
+      
+      if (f.index === '?' && f.working_dir === '?') {
+        letter = 'U'; color = 'text-green-400';
+      } else if (f.index === 'A' || f.working_dir === 'A') {
+        letter = 'A'; color = 'text-green-500';
+      } else if (f.index === 'M' || f.working_dir === 'M') {
+        letter = 'M'; color = 'text-yellow-500';
+      } else if (f.index === 'D' || f.working_dir === 'D') {
+        letter = 'D'; color = 'text-red-500';
+      }
+      if (letter) {
+        // Strip trailing slash that git sometimes adds for untracked directories
+        const normalizedPath = f.path.replace(/\/$/, '');
+        map[normalizedPath] = { letter, color };
+      }
+    });
+    return map;
+  }, [gitStatus]);
+
+  // Compute folder statuses (has changed children)
+  const folderStatuses = React.useMemo(() => {
+    const map: Record<string, boolean> = {};
+    Object.keys(fileStatuses).forEach(filePath => {
+      const parts = filePath.split('/');
+      parts.pop(); // remove file name
+      while (parts.length > 0) {
+        map[parts.join('/')] = true;
+        parts.pop();
+      }
+    });
+    return map;
+  }, [fileStatuses]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -71,6 +115,7 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files'] });
+      queryClient.invalidateQueries({ queryKey: ['git-status'] });
       setContextMenu(null);
     },
     onError: (err: any) => {
@@ -109,37 +154,61 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
   };
 
   const renderTree = (nodes: FileNode[], depth = 0) => {
-    return nodes.map(node => (
-      <div key={node.path}>
-        <div 
-          className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:bg-canvas-night-soft hover:text-foreground cursor-pointer rounded-sm"
-          style={{ paddingLeft: `${depth * 12 + 8}px` }}
-          onClick={() => {
-            if (node.isDir) {
-              toggleFolder(node.path);
-            } else if (onFileSelect) {
-              onFileSelect(node.path);
-            }
-          }}
-          onContextMenu={(e) => handleContextMenu(e, node.path, node.isDir)}
-        >
-          <div className="shrink-0 w-4 flex items-center justify-center">
+    return nodes.map(node => {
+      let gitStatusInfo = fileStatuses[node.path];
+      if (!gitStatusInfo) {
+        // If an ancestor is untracked, treat this node as untracked too
+        let parentPath = node.path;
+        while(parentPath.includes('/')) {
+          parentPath = parentPath.split('/').slice(0, -1).join('/');
+          if (fileStatuses[parentPath]?.letter === 'U') {
+             gitStatusInfo = { letter: 'U', color: 'text-green-400' };
+             break;
+          }
+        }
+      }
+      const folderHasChanges = node.isDir && folderStatuses[node.path];
+      
+      return (
+        <div key={node.path}>
+          <div 
+            className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:bg-canvas-night-soft hover:text-foreground cursor-pointer rounded-sm group"
+            style={{ paddingLeft: `${depth * 12 + 8}px` }}
+            onClick={() => {
+              if (node.isDir) {
+                toggleFolder(node.path);
+              } else if (onFileSelect) {
+                onFileSelect(node.path);
+              }
+            }}
+            onContextMenu={(e) => handleContextMenu(e, node.path, node.isDir)}
+          >
+            <div className="shrink-0 w-4 flex items-center justify-center">
+              {node.isDir ? (
+                expandedFolders[node.path] ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+              ) : <span className="w-3.5" />}
+            </div>
             {node.isDir ? (
-              expandedFolders[node.path] ? <ChevronDown size={14} /> : <ChevronRight size={14} />
-            ) : <span className="w-3.5" />}
+              <Folder size={14} className="text-primary-soft shrink-0" />
+            ) : (
+              <FileIcon size={14} className="text-muted-foreground shrink-0" />
+            )}
+            <span className={`truncate flex-1 ${gitStatusInfo ? gitStatusInfo.color : ''}`}>{node.name}</span>
+            
+            {/* Git Badges */}
+            {node.isDir && folderHasChanges && (
+              <div className="w-2 h-2 rounded-full bg-blue-500 mr-1 shrink-0" />
+            )}
+            {!node.isDir && gitStatusInfo && (
+              <span className={`text-[10px] font-bold ${gitStatusInfo.color} shrink-0 pr-1`}>{gitStatusInfo.letter}</span>
+            )}
           </div>
-          {node.isDir ? (
-            <Folder size={14} className="text-primary-soft shrink-0" />
-          ) : (
-            <FileIcon size={14} className="text-muted-foreground shrink-0" />
+          {node.isDir && expandedFolders[node.path] && node.children && (
+            <div>{renderTree(node.children, depth + 1)}</div>
           )}
-          <span className="truncate">{node.name}</span>
         </div>
-        {node.isDir && expandedFolders[node.path] && node.children && (
-          <div>{renderTree(node.children, depth + 1)}</div>
-        )}
-      </div>
-    ));
+      );
+    });
   };
 
   return (
@@ -147,7 +216,10 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
       <div className="flex items-center justify-between px-3 py-2 border-b border-border">
         <span className="text-xs font-semibold text-muted-foreground tracking-wider">EXPLORER</span>
         <button 
-          onClick={() => queryClient.invalidateQueries({ queryKey: ['files'] })}
+          onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ['files'] });
+            queryClient.invalidateQueries({ queryKey: ['git-status'] });
+          }}
           className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-canvas-night-soft transition-colors"
           title="Refresh Explorer"
         >

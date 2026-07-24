@@ -37,6 +37,7 @@ async function buildFileTree(dirPath: string, relativeRoot: string = ''): Promis
     const nodes: FileNode[] = [];
     
     for (const entry of entries) {
+      if (entry.name === '.git') continue;
       const fullPath = path.join(dirPath, entry.name);
       const relPath = path.join(relativeRoot, entry.name).replace(/\\/g, '/');
       const isDir = entry.isDirectory();
