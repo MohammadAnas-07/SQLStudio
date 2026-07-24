@@ -8,7 +8,7 @@ import * as pty from 'node-pty';
 import os from 'os';
 import path from 'path';
 
-const WORKSPACE_ROOT = path.resolve(process.cwd(), '../workspace');
+const WORKSPACE_ROOT = path.join(os.homedir(), 'Desktop', 'sql-workspace');
 
 
 const fastify = Fastify({
@@ -285,12 +285,15 @@ fastify.delete('/api/database/:name', async (request, reply) => {
   }
 });
 
+import { gitRoutes } from './routes/git.routes';
+
 const start = async () => {
   try {
     // Wait for the db to be ready before listening
     await db.waitReady;
     await aiRoutes(fastify);
     await fileRoutes(fastify);
+    await gitRoutes(fastify);
     await fastify.listen({ port: 3000, host: '0.0.0.0' });
     console.log('Backend listening on port 3000');
   } catch (err) {

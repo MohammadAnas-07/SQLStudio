@@ -1,9 +1,10 @@
 import fs from 'fs/promises';
 import path from 'path';
+import os from 'os';
 import { FastifyInstance } from 'fastify';
 
-// Resolve to project root's workspace directory
-const WORKSPACE_ROOT = path.resolve(process.cwd(), '../workspace');
+// Resolve to Desktop workspace directory
+const WORKSPACE_ROOT = path.join(os.homedir(), 'Desktop', 'sql-workspace');
 
 // Ensure workspace directory exists
 fs.mkdir(WORKSPACE_ROOT, { recursive: true }).catch(console.error);
