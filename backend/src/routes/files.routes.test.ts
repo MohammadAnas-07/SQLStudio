@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'path';
-import os from 'os';
 import { resolveAndValidatePath } from './files.routes';
+import { config } from '../config/env';
 
-const WORKSPACE_ROOT = path.join(os.homedir(), 'Desktop', 'sql-workspace');
+const WORKSPACE_ROOT = config.WORKSPACE_ROOT_PATH;
 
 test('resolveAndValidatePath allows a normal path inside the workspace', () => {
   const resolved = resolveAndValidatePath('notes/todo.sql');

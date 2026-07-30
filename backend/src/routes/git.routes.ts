@@ -1,9 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import { simpleGit, SimpleGit, SimpleGitOptions } from 'simple-git';
-import path from 'path';
-import os from 'os';
+import { config } from '../config/env';
 
-const WORKSPACE_ROOT = path.join(os.homedir(), 'Desktop', 'sql-workspace');
+const WORKSPACE_ROOT = config.WORKSPACE_ROOT_PATH;
 
 // Configure simple-git to strictly use WORKSPACE_ROOT
 const gitOptions: Partial<SimpleGitOptions> = {

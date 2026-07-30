@@ -6,12 +6,13 @@ import { fileRoutes } from './routes/files.routes';
 import { authRoutes } from './routes/auth.routes';
 import { configureAuth } from './plugins/auth';
 import { isExistingSchema } from './lib/schemaValidation';
+import { config } from './config/env';
 import { prisma, db } from './database';
 import * as pty from 'node-pty';
 import os from 'os';
 import path from 'path';
 
-const WORKSPACE_ROOT = path.join(os.homedir(), 'Desktop', 'sql-workspace');
+const WORKSPACE_ROOT = config.WORKSPACE_ROOT_PATH;
 
 
 const fastify = Fastify({
