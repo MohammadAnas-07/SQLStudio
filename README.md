@@ -7,7 +7,7 @@ A web-based SQL IDE. Write, run, save, and track SQL queries against a real data
 ## Features
 
 - **Monaco editor**: SQL syntax highlighting, autocomplete, dark mode.
-- **Real database execution**: runs raw SQL against a persistent SQLite backend.
+- **Real database execution**: runs raw SQL against a persistent PGlite (embedded, Postgres-compatible) backend.
 - **Schema explorer**: browse tables, columns, and primary keys from the live schema.
 - **Query history**: every execution is logged with status, execution time, and timestamp.
 - **Saved queries**: save snippets into collections, re-run them with one click.
@@ -99,12 +99,13 @@ flowchart LR
             Cache[Caching Layer]
         end
         
+        PG[("PGlite + SQLite (embedded)")]
+
         Log[Logging & Error Handling]
         Env[Environment Variables]
     end
 
     subgraph External
-        PG[("PostgreSQL / SQLite")]
         Gemini[Gemini API]
         VectorStore[("Future Vector Store")]
     end
@@ -221,7 +222,7 @@ flowchart TD
 | Styling | Tailwind CSS, Lucide Icons | Utility-first CSS, dark mode tokens |
 | Editor | Monaco Editor | VS Code's editor engine, with AI autocomplete |
 | Backend | Fastify, Node.js | Async REST API |
-| Database | PostgreSQL / SQLite | Primary datastore |
+| Database | PGlite (embedded, Postgres-compatible), SQLite | PGlite runs query execution in-process; SQLite (via Prisma) stores app metadata |
 | Authentication | JWT (`@fastify/jwt`), bcrypt | Login/register endpoints, token required on every API route and the terminal websocket |
 | AI model | Google Gemini | SQL generation |
 | RAG engine | Custom context builder | Extracts schema for context-aware queries |
