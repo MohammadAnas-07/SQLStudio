@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useToast } from '@/store/toastStore';
+import { apiFetch } from '@/lib/api';
 
 interface ColumnDef { name: string; type: string; isPrimary: boolean; }
 interface TableDef { name: string; columns: ColumnDef[]; }
@@ -64,7 +65,7 @@ export default function SQLWorkspace() {
   const { data: schemaData, isLoading: isLoadingSchema } = useQuery({
     queryKey: ['schema'],
     queryFn: async () => {
-      const res = await fetch('http://localhost:3000/api/schema');
+      const res = await apiFetch('/api/schema');
       return res.json() as Promise<{ schema: SchemaDef[] }>;
     }
   });
@@ -73,7 +74,7 @@ export default function SQLWorkspace() {
   const queryClient = useQueryClient();
   const executeMutation = useMutation({
     mutationFn: async (sql: string) => {
-      const res = await fetch('http://localhost:3000/api/query/execute', {
+      const res = await apiFetch('/api/query/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: sql })
@@ -94,7 +95,7 @@ export default function SQLWorkspace() {
 
   const explainMutation = useMutation({
     mutationFn: async (sql: string) => {
-      const res = await fetch('http://localhost:3000/api/ai/explain', {
+      const res = await apiFetch('/api/ai/explain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sql })
@@ -105,7 +106,7 @@ export default function SQLWorkspace() {
 
   const optimizeMutation = useMutation({
     mutationFn: async (sql: string) => {
-      const res = await fetch('http://localhost:3000/api/ai/optimize', {
+      const res = await apiFetch('/api/ai/optimize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sql })
@@ -116,7 +117,7 @@ export default function SQLWorkspace() {
 
   const fixMutation = useMutation({
     mutationFn: async ({ sql, error }: { sql: string, error: string }) => {
-      const res = await fetch('http://localhost:3000/api/ai/fix', {
+      const res = await apiFetch('/api/ai/fix', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sql, error })
@@ -138,7 +139,7 @@ export default function SQLWorkspace() {
 
   const deleteDatabaseMutation = useMutation({
     mutationFn: async (name: string) => {
-      const res = await fetch(`http://localhost:3000/api/database/${name}`, {
+      const res = await apiFetch(`/api/database/${name}`, {
         method: 'DELETE',
       });
       const json = await res.json();
@@ -163,7 +164,7 @@ export default function SQLWorkspace() {
 
     if (activeFilePath) {
       try {
-        const res = await fetch('http://localhost:3000/api/files/content', {
+        const res = await apiFetch('/api/files/content', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ path: activeFilePath, content: query })
@@ -185,7 +186,7 @@ export default function SQLWorkspace() {
     const queryName = `Saved Query ${new Date().toLocaleString()}`;
     
     try {
-      const res = await fetch('http://localhost:3000/api/saved-queries', {
+      const res = await apiFetch('/api/saved-queries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -208,7 +209,7 @@ export default function SQLWorkspace() {
 
   const handleFileSelect = async (path: string) => {
     try {
-      const res = await fetch(`http://localhost:3000/api/files/content?path=${encodeURIComponent(path)}`);
+      const res = await apiFetch(`/api/files/content?path=${encodeURIComponent(path)}`);
       const data = await res.json();
       if (data.success) {
         setQuery(data.content);
@@ -225,8 +226,8 @@ export default function SQLWorkspace() {
   const handleGitFileSelect = async (path: string) => {
     try {
       const [localRes, gitRes] = await Promise.all([
-        fetch(`http://localhost:3000/api/files/content?path=${encodeURIComponent(path)}`),
-        fetch(`http://localhost:3000/api/git/show?path=${encodeURIComponent(path)}`)
+        apiFetch(`/api/files/content?path=${encodeURIComponent(path)}`),
+        apiFetch(`/api/git/show?path=${encodeURIComponent(path)}`)
       ]);
       const localData = await localRes.json();
       const gitData = await gitRes.json();
@@ -301,7 +302,7 @@ export default function SQLWorkspace() {
         });
         
         try {
-          const res = await fetch('http://localhost:3000/api/ai/chat', {
+          const res = await apiFetch('/api/ai/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt: `Complete this SQL query (ONLY RETURN THE COMPLETION CODE AND NOTHING ELSE):\n${textUntilPosition}` })

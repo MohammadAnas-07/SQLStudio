@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useToast } from '@/store/toastStore';
+import { apiFetch } from '@/lib/api';
 
 export default function SavedQueries() {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ export default function SavedQueries() {
   const { data, isLoading } = useQuery({
     queryKey: ['savedQueries'],
     queryFn: async () => {
-      const res = await fetch('http://localhost:3000/api/saved-queries');
+      const res = await apiFetch('/api/saved-queries');
       const json = await res.json();
       return json.success ? json.savedQueries : [];
     }
@@ -23,7 +24,7 @@ export default function SavedQueries() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`http://localhost:3000/api/saved-queries/${id}`, {
+      const res = await apiFetch(`/api/saved-queries/${id}`, {
         method: 'DELETE',
       });
       const json = await res.json();

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Folder, File as FileIcon, FolderPlus, FilePlus, Edit2, Trash2, ChevronRight, ChevronDown, Loader2, RefreshCw } from 'lucide-react';
 import { useGitStatus } from '@/lib/hooks/useGit';
+import { apiFetch } from '@/lib/api';
 
 interface FileNode {
   name: string;
@@ -19,7 +20,7 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
   const { data: filesData, isLoading } = useQuery({
     queryKey: ['files'],
     queryFn: async () => {
-      const res = await fetch('http://localhost:3000/api/files');
+      const res = await apiFetch('/api/files');
       return res.json() as Promise<{ success: boolean; files: FileNode[] }>;
     },
     refetchInterval: 2000 // Poll every 2 seconds to catch changes from terminal
@@ -92,19 +93,19 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
     mutationFn: async ({ action, ...payload }: { action: 'create' | 'rename' | 'delete', path?: string, type?: 'file' | 'folder', oldPath?: string, newPath?: string }) => {
       let res;
       if (action === 'create') {
-        res = await fetch('http://localhost:3000/api/files', {
+        res = await apiFetch('/api/files', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
       } else if (action === 'rename') {
-        res = await fetch('http://localhost:3000/api/files', {
+        res = await apiFetch('/api/files', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
       } else if (action === 'delete') {
-        res = await fetch(`http://localhost:3000/api/files?path=${encodeURIComponent(payload.path || '')}`, {
+        res = await apiFetch(`/api/files?path=${encodeURIComponent(payload.path || '')}`, {
           method: 'DELETE'
         });
       }
