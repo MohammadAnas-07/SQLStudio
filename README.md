@@ -11,11 +11,12 @@ A web-based SQL IDE. Write, run, save, and track SQL queries against a real data
 - **Schema explorer**: browse tables, columns, and primary keys from the live schema.
 - **Query history**: every execution is logged with status, execution time, and timestamp.
 - **Saved queries**: save snippets into collections, re-run them with one click.
-- **Dashboard**: connection counts, active users, query metrics, recent activity.
+- **Dashboard**: per-user connection counts, query metrics, and recent activity, plus a global active-user count.
 - **Dark mode by default**, styled with plain CSS tokens, loosely modeled on VS Code, DataGrip, and Supabase Studio.
 - **Run selected query**: highlight part of a script and run just that selection, without executing the whole file.
 - **File and folder management**: create, rename, and delete files/folders in the workspace explorer, backed by an API that keeps everything scoped to the workspace folder.
 - **Integrated terminal**: a real shell (xterm.js + node-pty), running in the workspace directory. This is a full, unrestricted shell — not a sandboxed command runner — so anything typed into it runs directly on your machine, the same as opening a normal terminal. Local-only, not exposed on the network.
+- **Authentication**: email/password login and registration, JWT-based. Every API route and the terminal's websocket connection requires a valid token.
 - **Git integration**: init, status, add, commit, log, branch, checkout, diff, and push to GitHub, all scoped to the user's own workspace folder, separate from the app's own codebase.
 ### Git integration, in more detail
  
@@ -23,7 +24,7 @@ Each user's workspace maps to its own folder on disk (e.g. under Desktop), kept 
  
 Supported: `init`, `status`, `add`, `commit`, `log`, `branch`, `checkout`, `diff`, `remote`, `push`.
  
-This is built for **local, single-user use**. There's no per-user sandboxing or container isolation — if you deploy this for multiple people or expose it on a network, the terminal and git features would need a real security review first (containerized shells, path validation, auth on pushes, etc.). As a local dev tool, this setup is fine.
+This is built for local, single-user use. Login exists to gate API access, but there's no per-user sandboxing or container isolation — every account shares the same workspace folder and shell, so a second user isn't isolated from the first. If you deploy this for multiple people or expose it on a network, the terminal and git features would need a real security review first (containerized shells, per-user workspaces, auth on pushes, etc.). As a local dev tool, this setup is fine.
 
 ## Performance benchmarks
 
@@ -157,11 +158,18 @@ backend/
 │   │   └── env.ts
 │   ├── controllers/
 │   │   └── ai.controller.ts
+│   ├── lib/
+│   │   └── schemaValidation.ts
+│   ├── plugins/
+│   │   └── auth.ts
 │   ├── rag/
 │   │   ├── promptBuilder.ts
 │   │   └── schemaRetriever.ts
 │   ├── routes/
-│   │   └── ai.routes.ts
+│   │   ├── ai.routes.ts
+│   │   ├── auth.routes.ts
+│   │   ├── files.routes.ts
+│   │   └── git.routes.ts
 │   ├── services/
 │   │   └── ai.service.ts
 │   ├── database.ts
@@ -170,6 +178,7 @@ backend/
 │   └── seed-metadata.ts
 ├── prisma/
 │   └── schema.prisma
+├── Dockerfile
 └── package.json
 
 frontend/
@@ -179,9 +188,13 @@ frontend/
 │   │   │   ├── AIChatSidebar.tsx
 │   │   │   └── ChatMessage.tsx
 │   │   └── ui/
+│   ├── lib/
+│   │   └── api.ts
 │   ├── pages/
+│   │   ├── Login.tsx
 │   │   └── SQLWorkspace.tsx
 │   ├── store/
+│   │   └── authStore.ts
 │   └── index.css
 └── package.json
 ```
@@ -209,11 +222,11 @@ flowchart TD
 | Editor | Monaco Editor | VS Code's editor engine, with AI autocomplete |
 | Backend | Fastify, Node.js | Async REST API |
 | Database | PostgreSQL / SQLite | Primary datastore |
-| Authentication | Custom / mock auth | Session management |
+| Authentication | JWT (`@fastify/jwt`), bcrypt | Login/register endpoints, token required on every API route and the terminal websocket |
 | AI model | Google Gemini | SQL generation |
 | RAG engine | Custom context builder | Extracts schema for context-aware queries |
 | Environment | Dotenv, Vite config | Environment management |
-| Deployment | Docker (planned) | Not yet implemented |
+| Deployment | Docker | Dockerfile + docker-compose for the backend; frontend runs separately via Vite |
 | Future | Vector store | Embeddings for semantic search |
 
 ## Tech stack (detail)
@@ -258,6 +271,13 @@ flowchart TD
    GEMINI_API_KEY=
    DATABASE_URL="file:./metadata.db"
    PORT=3000
+   JWT_SECRET=
+   # Optional. Defaults to ~/Desktop/sql-workspace; Docker overrides this to /app/workspace
+   WORKSPACE_ROOT_PATH=
+   # Optional. Defaults to http://localhost:5173. Set this to your real frontend
+   # origin (never '*') if you deploy the backend anywhere reachable from outside
+   # your own machine.
+   CORS_ORIGIN=
    ```
 
    Initialize the database and start the server:
@@ -285,13 +305,24 @@ flowchart TD
    ```
    The frontend runs on `http://localhost:5173`.
 
+### Running the backend with Docker instead
+
+`docker-compose.yml` builds and runs the backend in a container, with a named volume so workspace files survive restarts:
+
+```bash
+docker compose up --build
+```
+
+The frontend isn't containerized — keep running it separately with `npm run dev`. If this container will be reachable from outside your own machine, set real values for `CORS_ORIGIN` and `JWT_SECRET` first (see the comments in `docker-compose.yml`).
+
 ## Usage
 1. Open your browser to `http://localhost:5173`.
-2. Go to Workspace in the sidebar.
-3. Write standard SQL (`CREATE TABLE`, `INSERT`, `SELECT`, etc.) in the Monaco editor.
-4. Hit Run Query to see the results.
-5. Hit Save to add a query to your library.
-6. Check Dashboard, Query History, and Saved Queries from the sidebar.
+2. Log in with the seeded account (`admin@sqlstudio.local` / `ChangeMe123!`, created by `npx tsx src/seed-metadata.ts`) or register a new one.
+3. Go to Workspace in the sidebar.
+4. Write standard SQL (`CREATE TABLE`, `INSERT`, `SELECT`, etc.) in the Monaco editor.
+5. Hit Run Query to see the results.
+6. Hit Save to add a query to your library.
+7. Check Dashboard, Query History, and Saved Queries from the sidebar.
 
 ## License
 MIT License
