@@ -9,18 +9,21 @@ const WORKSPACE_ROOT = path.join(os.homedir(), 'Desktop', 'sql-workspace');
 // Ensure workspace directory exists
 fs.mkdir(WORKSPACE_ROOT, { recursive: true }).catch(console.error);
 
-function resolveAndValidatePath(requestPath: string): string {
+export function resolveAndValidatePath(requestPath: string): string {
   if (!requestPath) requestPath = '';
   // Convert any URL encoded characters (if passed via query string)
   requestPath = decodeURIComponent(requestPath);
-  
+
   const resolvedPath = path.resolve(WORKSPACE_ROOT, requestPath);
-  
-  // Security Check: Ensure the resolved path is inside the WORKSPACE_ROOT
-  if (!resolvedPath.startsWith(WORKSPACE_ROOT)) {
+
+  // Security Check: Ensure the resolved path is inside the WORKSPACE_ROOT.
+  // A plain startsWith(WORKSPACE_ROOT) check is bypassable by a sibling
+  // directory that merely shares the prefix (e.g. "sql-workspace-evil"),
+  // so require an exact match or a path-separator boundary.
+  if (resolvedPath !== WORKSPACE_ROOT && !resolvedPath.startsWith(WORKSPACE_ROOT + path.sep)) {
     throw new Error('Invalid path: Access denied (Outside workspace root)');
   }
-  
+
   return resolvedPath;
 }
 
