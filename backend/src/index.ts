@@ -20,7 +20,7 @@ const fastify = Fastify({
 });
 
 fastify.register(cors, {
-  origin: '*', // Allow all for development
+  origin: config.CORS_ORIGIN,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 });
 
@@ -226,7 +226,7 @@ fastify.get('/api/dashboard/stats', async (request, reply) => {
     const activeUsers = await prisma.user.count();
     const savedQueries = await prisma.savedQuery.count({ where: { userId } });
 
-    // Just some realistic mock recent connections
+    // The 5 most recently updated connections for this user
     const recentConnections = await prisma.databaseConnection.findMany({
       where: { userId },
       take: 5,

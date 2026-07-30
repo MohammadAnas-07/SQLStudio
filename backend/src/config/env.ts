@@ -10,4 +10,7 @@ export const config = {
   // exists on Windows/Mac). Docker overrides this via WORKSPACE_ROOT_PATH
   // since there's no Desktop folder inside a Linux container.
   WORKSPACE_ROOT_PATH: process.env.WORKSPACE_ROOT_PATH || path.join(os.homedir(), 'Desktop', 'sql-workspace'),
+  // Defaults to the Vite dev server's default port. Never set this to '*'
+  // in a public deployment — see the CORS_ORIGIN note in docker-compose.yml.
+  CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
 };
