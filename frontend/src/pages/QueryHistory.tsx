@@ -1,13 +1,14 @@
 import { Search, Clock, Play, FileText, Calendar, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '@/lib/api';
 
 export default function QueryHistory() {
   const navigate = useNavigate();
   const { data, isLoading } = useQuery({
     queryKey: ['queryHistory'],
     queryFn: async () => {
-      const res = await fetch('http://localhost:3000/api/history');
+      const res = await apiFetch('/api/history');
       const json = await res.json();
       return json.success ? json.history : [];
     }

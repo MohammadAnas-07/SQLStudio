@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/store/toastStore';
+import { apiFetch } from '@/lib/api';
 
 export interface GitStatusResult {
   not_added: string[];
@@ -21,7 +22,7 @@ export function useGitStatus() {
   return useQuery({
     queryKey: ['git-status'],
     queryFn: async () => {
-      const res = await fetch('http://localhost:3000/api/git/status');
+      const res = await apiFetch('/api/git/status');
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       return data.status as GitStatusResult;
@@ -34,7 +35,7 @@ export function useGitBranch() {
   return useQuery({
     queryKey: ['git-branch'],
     queryFn: async () => {
-      const res = await fetch('http://localhost:3000/api/git/branch');
+      const res = await apiFetch('/api/git/branch');
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       return data.branches;
@@ -53,7 +54,7 @@ export function useGitMutations() {
 
   const stage = useMutation({
     mutationFn: async (files: string | string[]) => {
-      const res = await fetch('http://localhost:3000/api/git/add', {
+      const res = await apiFetch('/api/git/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ files })
@@ -68,7 +69,7 @@ export function useGitMutations() {
 
   const unstage = useMutation({
     mutationFn: async (files: string | string[]) => {
-      const res = await fetch('http://localhost:3000/api/git/unstage', {
+      const res = await apiFetch('/api/git/unstage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ files })
@@ -83,7 +84,7 @@ export function useGitMutations() {
 
   const commit = useMutation({
     mutationFn: async (message: string) => {
-      const res = await fetch('http://localhost:3000/api/git/commit', {
+      const res = await apiFetch('/api/git/commit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message })
@@ -101,7 +102,7 @@ export function useGitMutations() {
 
   const checkout = useMutation({
     mutationFn: async ({ branch, create }: { branch: string, create?: boolean }) => {
-      const res = await fetch('http://localhost:3000/api/git/checkout', {
+      const res = await apiFetch('/api/git/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ branch, create })

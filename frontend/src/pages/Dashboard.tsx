@@ -1,11 +1,12 @@
 import { Database, Users, Activity, HardDrive, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { apiFetch } from '@/lib/api';
 
 export default function Dashboard() {
   const { data, isLoading } = useQuery({
     queryKey: ['dashboardStats'],
     queryFn: async () => {
-      const res = await fetch('http://localhost:3000/api/dashboard/stats');
+      const res = await apiFetch('/api/dashboard/stats');
       const json = await res.json();
       return json.success ? json : null;
     }

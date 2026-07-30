@@ -3,6 +3,8 @@ import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import { aiRoutes } from './routes/ai.routes';
 import { fileRoutes } from './routes/files.routes';
+import { authRoutes } from './routes/auth.routes';
+import { configureAuth } from './plugins/auth';
 import { prisma, db } from './database';
 import * as pty from 'node-pty';
 import os from 'os';
@@ -15,19 +17,49 @@ const fastify = Fastify({
   logger: true,
 });
 
-fastify.register(cors, { 
+fastify.register(cors, {
   origin: '*', // Allow all for development
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 });
 
 fastify.register(websocket);
 
+// Must run before any route is declared below: Fastify only applies a hook
+// to routes registered after it, so the global auth preHandler has to be
+// wired in here first for it to cover everything that follows (including
+// routes registered later inside async plugins like aiRoutes/fileRoutes/gitRoutes).
+configureAuth(fastify);
+
 fastify.get('/ping', async (request, reply) => {
   return { status: 'ok', service: 'sqlstudio-backend' };
 });
 
 fastify.register(async (app) => {
-  app.get('/api/terminal', { websocket: true }, (connection, req) => {
+  app.get('/api/terminal', {
+    websocket: true,
+    // A preHandler hook cannot protect a websocket upgrade reliably, so the
+    // terminal route authenticates explicitly during the handshake instead:
+    // if this rejects, the reply is sent as a normal HTTP 401 and the
+    // connection never gets upgraded to a websocket.
+    preValidation: async (request, reply) => {
+      const query = request.query as { token?: string };
+      const authHeader = request.headers['authorization'];
+      const bearerToken = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+        ? authHeader.slice(7)
+        : undefined;
+      const token = query?.token || bearerToken;
+
+      if (!token) {
+        return reply.code(401).send({ success: false, error: 'Missing authentication token' });
+      }
+
+      try {
+        app.jwt.verify(token);
+      } catch (err) {
+        return reply.code(401).send({ success: false, error: 'Invalid or expired token' });
+      }
+    },
+  }, (connection, req) => {
     const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
     const ptyProcess = pty.spawn(shell, [], {
       name: 'xterm-color',
@@ -185,13 +217,16 @@ fastify.post('/api/query/execute', async (request, reply) => {
 // Dashboard stats endpoint
 fastify.get('/api/dashboard/stats', async (request, reply) => {
   try {
-    const totalConnections = await prisma.databaseConnection.count();
-    const totalQueries = await prisma.queryHistory.count();
+    const userId = request.user.id;
+
+    const totalConnections = await prisma.databaseConnection.count({ where: { userId } });
+    const totalQueries = await prisma.queryHistory.count({ where: { userId } });
     const activeUsers = await prisma.user.count();
-    const savedQueries = await prisma.savedQuery.count();
+    const savedQueries = await prisma.savedQuery.count({ where: { userId } });
 
     // Just some realistic mock recent connections
     const recentConnections = await prisma.databaseConnection.findMany({
+      where: { userId },
       take: 5,
       orderBy: { updatedAt: 'desc' }
     });
@@ -215,6 +250,7 @@ fastify.get('/api/dashboard/stats', async (request, reply) => {
 fastify.get('/api/history', async (request, reply) => {
   try {
     const history = await prisma.queryHistory.findMany({
+      where: { userId: request.user.id },
       orderBy: { createdAt: 'desc' },
       take: 100
     });
@@ -291,6 +327,7 @@ const start = async () => {
   try {
     // Wait for the db to be ready before listening
     await db.waitReady;
+    await authRoutes(fastify);
     await aiRoutes(fastify);
     await fileRoutes(fastify);
     await gitRoutes(fastify);

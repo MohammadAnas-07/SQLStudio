@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, Trash2, X, Loader2 } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
+import { apiFetch } from '@/lib/api';
 
 interface Message {
   id: string;
@@ -30,7 +31,7 @@ export function AIChatSidebar({ onClose, onExecuteQuery, onInsertIntoEditor }: A
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/ai/history');
+      const res = await apiFetch('/api/ai/history');
       const data = await res.json();
       if (data.success) {
         setMessages(data.history || []);
@@ -49,7 +50,7 @@ export function AIChatSidebar({ onClose, onExecuteQuery, onInsertIntoEditor }: A
     setIsLoading(true);
 
     try {
-      const res = await fetch('http://localhost:3000/api/ai/chat', {
+      const res = await apiFetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: userMsg })
@@ -69,7 +70,7 @@ export function AIChatSidebar({ onClose, onExecuteQuery, onInsertIntoEditor }: A
 
   const handleClear = async () => {
     try {
-      await fetch('http://localhost:3000/api/ai/history', { method: 'DELETE' });
+      await apiFetch('/api/ai/history', { method: 'DELETE' });
       setMessages([]);
     } catch (e) {
       console.error('Failed to clear history', e);

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
+import { getTerminalWsUrl } from '@/lib/api';
 
 export function TerminalPanel() {
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -30,12 +31,9 @@ export function TerminalPanel() {
     
     term.current.open(terminalRef.current);
     
-    // Connect to WebSocket
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname;
-    // Assume backend is on port 3000 on the same host
-    const wsUrl = `${protocol}//${host}:3000/api/terminal`;
-    ws.current = new WebSocket(wsUrl);
+    // Connect to WebSocket (token passed as a query param since the browser
+    // WebSocket API can't set custom headers on the handshake)
+    ws.current = new WebSocket(getTerminalWsUrl());
     
     ws.current.onopen = () => {
       // fit once connected

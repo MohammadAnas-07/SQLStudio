@@ -1,9 +1,18 @@
-import { Outlet, NavLink } from 'react-router-dom';
-import { Database, LayoutDashboard, Terminal, History, BookOpen, Settings } from 'lucide-react';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Database, LayoutDashboard, Terminal, History, BookOpen, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StatusBar } from './StatusBar';
+import { useAuthStore } from '@/store/authStore';
 
 export default function AppLayout() {
+  const navigate = useNavigate();
+  const logout = useAuthStore((s) => s.logout);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/workspace', icon: Terminal, label: 'SQL Workspace' },
@@ -39,8 +48,12 @@ export default function AppLayout() {
             ))}
           </nav>
           <div className="mt-auto px-2 w-full">
-            <button className="p-3 w-full rounded-md flex items-center justify-center text-muted-foreground hover:bg-canvas-night-soft hover:text-foreground transition-colors">
-              <Settings size={22} strokeWidth={1.5} />
+            <button
+              onClick={handleLogout}
+              title="Log out"
+              className="p-3 w-full rounded-md flex items-center justify-center text-muted-foreground hover:bg-canvas-night-soft hover:text-red-400 transition-colors"
+            >
+              <LogOut size={22} strokeWidth={1.5} />
             </button>
           </div>
         </aside>
