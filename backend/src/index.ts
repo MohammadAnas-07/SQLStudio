@@ -5,6 +5,7 @@ import { aiRoutes } from './routes/ai.routes';
 import { fileRoutes } from './routes/files.routes';
 import { authRoutes } from './routes/auth.routes';
 import { configureAuth } from './plugins/auth';
+import { isExistingSchema } from './lib/schemaValidation';
 import { prisma, db } from './database';
 import * as pty from 'node-pty';
 import os from 'os';
@@ -311,6 +312,13 @@ fastify.delete('/api/saved-queries/:id', async (request, reply) => {
 fastify.delete('/api/database/:name', async (request, reply) => {
   const { name } = request.params as { name: string };
   try {
+    // Whitelist check: name must be alphanumeric/underscore AND match an
+    // actual existing schema, so it can never carry SQL injection payloads
+    // through to the raw DROP SCHEMA statement below.
+    if (!(await isExistingSchema(db, name))) {
+      return reply.status(400).send({ success: false, error: 'Invalid or unknown schema name' });
+    }
+
     await db.exec(`DROP SCHEMA IF EXISTS "${name}" CASCADE;`);
     if (name === 'public') {
       await db.exec(`CREATE SCHEMA public;`);
