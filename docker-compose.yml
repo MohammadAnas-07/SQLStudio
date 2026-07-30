@@ -9,6 +9,11 @@ services:
       WORKSPACE_ROOT_PATH: /app/workspace
       JWT_SECRET: ${JWT_SECRET:-dev-insecure-secret-change-me}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Must be set to your actual frontend origin (e.g. https://your-domain.com)
+      # for any deployment reachable from the public internet. Never use '*'
+      # here once this is deployed publicly — that allows any website to call
+      # this API with a logged-in user's credentials.
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
     ports:
       - "3000:3000"
     volumes:
