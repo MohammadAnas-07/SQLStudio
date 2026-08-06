@@ -30,13 +30,17 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
 
   // Compute file statuses map
   const fileStatuses = React.useMemo(() => {
-    const map: Record<string, { letter: string, color: string }> = {};
+    const map: Record<string, { letter: string, color: string, renamedFrom?: string }> = {};
     if (!gitStatus) return map;
-    
+
     gitStatus.files.forEach(f => {
+      // Renames are handled below using the typed `renamed` field, which has
+      // clean from/to paths instead of the raw NUL-joined path/index codes.
+      if (f.index === 'R' || f.working_dir === 'R') return;
+
       let letter = '';
       let color = '';
-      
+
       if (f.index === '?' && f.working_dir === '?') {
         letter = 'U'; color = 'text-green-400';
       } else if (f.index === 'A' || f.working_dir === 'A') {
@@ -52,6 +56,13 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
         map[normalizedPath] = { letter, color };
       }
     });
+
+    // Renamed files: reflect the file at its NEW path with a distinct badge/color.
+    (gitStatus.renamed || []).forEach(r => {
+      const normalizedPath = r.to.replace(/\/$/, '');
+      map[normalizedPath] = { letter: 'R', color: 'text-blue-400', renamedFrom: r.from };
+    });
+
     return map;
   }, [gitStatus]);
 
@@ -183,6 +194,7 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
               }
             }}
             onContextMenu={(e) => handleContextMenu(e, node.path, node.isDir)}
+            title={gitStatusInfo?.renamedFrom ? `Renamed from ${gitStatusInfo.renamedFrom}` : undefined}
           >
             <div className="shrink-0 w-4 flex items-center justify-center">
               {node.isDir ? (
@@ -195,7 +207,7 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
               <FileIcon size={14} className="text-muted-foreground shrink-0" />
             )}
             <span className={`truncate flex-1 ${gitStatusInfo ? gitStatusInfo.color : ''}`}>{node.name}</span>
-            
+
             {/* Git Badges */}
             {node.isDir && folderHasChanges && (
               <div className="w-2 h-2 rounded-full bg-blue-500 mr-1 shrink-0" />
