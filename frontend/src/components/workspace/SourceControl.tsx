@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useGitStatus, useGitMutations } from '@/lib/hooks/useGit';
 import { File as FileIcon, Plus, Minus, Loader2, Check, AlertTriangle } from 'lucide-react';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
 export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) => void }) {
   const { data: gitStatus, isLoading } = useGitStatus();
   const { stage, unstage, commit } = useGitMutations();
   const [commitMessage, setCommitMessage] = useState('');
+  const [showConflictWarning, setShowConflictWarning] = useState(false);
 
   if (isLoading) {
     return <div className="flex justify-center p-4"><Loader2 className="animate-spin text-muted-foreground" size={20} /></div>;
@@ -63,12 +65,26 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
     return { letter, color };
   };
 
-  const handleCommit = () => {
-    if (!commitMessage.trim() || !hasStaged) return;
+  const performCommit = () => {
     commit.mutate(commitMessage, {
       onSuccess: () => setCommitMessage('')
     });
   };
+
+  const handleCommit = () => {
+    if (!commitMessage.trim() || !hasStaged) return;
+    // Warn, don't block — matches VS Code: committing while conflicts exist
+    // is allowed, but only after the user explicitly confirms.
+    if (hasConflicts) {
+      setShowConflictWarning(true);
+      return;
+    }
+    performCommit();
+  };
+
+  const conflictWarningMessage = conflictedFiles.length === 1
+    ? `"${conflictedFiles[0]}" still has unresolved merge conflicts. Commit anyway?`
+    : `${conflictedFiles.length} files still have unresolved merge conflicts: ${conflictedFiles.join(', ')}. Commit anyway?`;
 
   const renderFile = (filePath: string, isStaged: boolean) => {
     // Conflict status is checked first and wins over everything else — a
@@ -227,6 +243,17 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={showConflictWarning}
+        onClose={() => setShowConflictWarning(false)}
+        onConfirm={performCommit}
+        title="Unresolved merge conflicts"
+        message={conflictWarningMessage}
+        confirmText="Commit Anyway"
+        cancelText="Cancel"
+        isDestructive
+      />
     </div>
   );
 }

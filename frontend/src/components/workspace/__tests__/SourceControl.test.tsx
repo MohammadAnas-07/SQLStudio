@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SourceControl } from '../SourceControl';
 import {
@@ -7,17 +7,19 @@ import {
   conflictedFileGitStatus,
   conflictedAndModifiedFileGitStatus,
   conflictAndRenameGitStatus,
+  conflictWithOtherStagedFileGitStatus,
 } from '@/test/fixtures/gitStatus';
 import { useGitStatus } from '@/lib/hooks/useGit';
 
 const mockMutate = vi.fn();
+const mockCommitMutate = vi.fn();
 
 vi.mock('@/lib/hooks/useGit', () => ({
   useGitStatus: vi.fn(),
   useGitMutations: () => ({
     stage: { mutate: mockMutate },
     unstage: { mutate: mockMutate },
-    commit: { mutate: mockMutate, isPending: false },
+    commit: { mutate: mockCommitMutate, isPending: false },
   }),
 }));
 
@@ -125,5 +127,73 @@ describe('SourceControl - merge conflicts', () => {
 
     expect(screen.getByText('Staged Changes')).toBeInTheDocument();
     expect(screen.getByTitle('oldName.ts → newName.ts')).toBeInTheDocument();
+  });
+});
+
+describe('SourceControl - commit confirmation when conflicts are present', () => {
+  beforeEach(() => {
+    mockMutate.mockClear();
+    mockCommitMutate.mockClear();
+  });
+
+  function typeCommitMessageAndClickCommit(message = 'my commit message') {
+    fireEvent.change(screen.getByPlaceholderText(/message/i), { target: { value: message } });
+    fireEvent.click(screen.getByRole('button', { name: /^commit$/i }));
+  }
+
+  it('warns instead of committing immediately when a conflict is present', () => {
+    mockGitStatus({ data: conflictWithOtherStagedFileGitStatus, isLoading: false });
+    render(<SourceControl />);
+
+    typeCommitMessageAndClickCommit();
+
+    expect(screen.getByText('Unresolved merge conflicts')).toBeInTheDocument();
+    const dialogMessage = screen.getByText(/still has unresolved merge conflicts/i);
+    expect(dialogMessage.textContent).toContain('conflict.ts');
+    expect(mockCommitMutate).not.toHaveBeenCalled();
+  });
+
+  it('proceeds with the commit only after the user confirms', () => {
+    mockGitStatus({ data: conflictWithOtherStagedFileGitStatus, isLoading: false });
+    render(<SourceControl />);
+
+    typeCommitMessageAndClickCommit('my commit message');
+    expect(mockCommitMutate).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /commit anyway/i }));
+
+    expect(mockCommitMutate).toHaveBeenCalledTimes(1);
+    expect(mockCommitMutate).toHaveBeenCalledWith('my commit message', expect.anything());
+  });
+
+  it('does not commit if the user cancels the warning', () => {
+    mockGitStatus({ data: conflictWithOtherStagedFileGitStatus, isLoading: false });
+    render(<SourceControl />);
+
+    typeCommitMessageAndClickCommit();
+    expect(screen.getByText('Unresolved merge conflicts')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+
+    expect(mockCommitMutate).not.toHaveBeenCalled();
+    expect(screen.queryByText('Unresolved merge conflicts')).not.toBeInTheDocument();
+  });
+
+  it('does not block the commit outright — the button stays enabled with conflicts present', () => {
+    mockGitStatus({ data: conflictWithOtherStagedFileGitStatus, isLoading: false });
+    render(<SourceControl />);
+
+    fireEvent.change(screen.getByPlaceholderText(/message/i), { target: { value: 'my commit message' } });
+    expect(screen.getByRole('button', { name: /^commit$/i })).not.toBeDisabled();
+  });
+
+  it('commits directly, with no confirmation dialog, when there are no conflicts', () => {
+    mockGitStatus({ data: renamedFileGitStatus, isLoading: false });
+    render(<SourceControl />);
+
+    typeCommitMessageAndClickCommit();
+
+    expect(screen.queryByText('Unresolved merge conflicts')).not.toBeInTheDocument();
+    expect(mockCommitMutate).toHaveBeenCalledTimes(1);
   });
 });
