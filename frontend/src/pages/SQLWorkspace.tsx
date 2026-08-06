@@ -20,6 +20,7 @@ import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "reac
 import { useSessionStorage } from '@/lib/hooks/useSessionStorage';
 import { DiffEditor } from '@monaco-editor/react';
 import { STORAGE_KEYS } from '@/lib/constants/storage';
+import { fetchDeletedFileContent } from '@/lib/gitFileContent';
 import { GitBranch, Files as FilesIcon } from 'lucide-react';
 
 const ResizeHandle = ({ direction = "horizontal" }: { direction?: "horizontal" | "vertical" }) => {
@@ -245,6 +246,26 @@ export default function SQLWorkspace() {
     }
   };
 
+  // Deleted files have no current content to read — show a deletion diff
+  // (last committed content vs empty) instead of the normal file-select
+  // flow, which would just fail trying to read a file that no longer exists.
+  const handleDeletedFileSelect = async (path: string) => {
+    const result = await fetchDeletedFileContent(path);
+    if (result.status === 'ok') {
+      setQuery('');
+      setOriginalContent(result.content);
+      setActiveFilePath(path);
+      setDiffMode(true);
+    } else if (result.status === 'not-in-head') {
+      error(
+        'No prior version available',
+        `"${path}" was deleted before it was ever committed, so there's nothing to diff against.`
+      );
+    } else {
+      error('Failed to load deleted file', result.message);
+    }
+  };
+
   const handleRunQuery = () => {
     executeMutation.mutate(query);
   };
@@ -456,7 +477,7 @@ export default function SQLWorkspace() {
                     </div>
                   </>
                 ) : (
-                  <SourceControl onFileSelect={handleGitFileSelect} />
+                  <SourceControl onFileSelect={handleGitFileSelect} onDeletedFileSelect={handleDeletedFileSelect} />
                 )}
               </div>
             </div>

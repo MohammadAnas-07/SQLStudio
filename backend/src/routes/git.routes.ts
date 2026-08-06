@@ -14,6 +14,39 @@ const gitOptions: Partial<SimpleGitOptions> = {
 
 const git: SimpleGit = simpleGit(gitOptions);
 
+/**
+ * Resolves a path's last-committed (HEAD) content — used to build a
+ * deletion diff for a file that no longer exists on disk. Exported (and
+ * parameterized on the git instance) so it can be exercised directly in
+ * tests against a temp repo, without spinning up Fastify.
+ *
+ * `existsInHead` disambiguates two cases that git's error message alone
+ * conflates into "empty content": a file that IS in HEAD but happens to be
+ * genuinely empty, versus a file that was never committed at all (e.g.
+ * staged then deleted before the first commit, or a brand new repo with no
+ * commits yet) and therefore has no prior version to diff against.
+ */
+export async function resolveHeadContent(
+  gitInstance: Pick<SimpleGit, 'show'>,
+  filePath: string
+): Promise<{ success: true; content: string; existsInHead: boolean } | { success: false; error: string }> {
+  try {
+    const content = await gitInstance.show([`HEAD:${filePath}`]);
+    return { success: true, content, existsInHead: true };
+  } catch (error: any) {
+    if (error.message.includes("exists on disk, but not in 'HEAD'") ||
+        error.message.includes("does not exist in 'HEAD'") ||
+        error.message.includes("unknown revision") ||
+        // Thrown when the repo has no commits at all yet, so 'HEAD' itself
+        // doesn't resolve to anything — pre-existing gap this surfaced:
+        // previously fell through to a 500 instead of "no prior version".
+        error.message.includes("invalid object name 'HEAD'")) {
+      return { success: true, content: '', existsInHead: false };
+    }
+    return { success: false, error: error.message };
+  }
+}
+
 export async function gitRoutes(fastify: FastifyInstance) {
   
   fastify.post('/api/git/init', async (request, reply) => {
@@ -112,17 +145,11 @@ export async function gitRoutes(fastify: FastifyInstance) {
   fastify.get('/api/git/show', async (request, reply) => {
     const { path: filePath } = request.query as { path?: string };
     if (!filePath) return reply.status(400).send({ success: false, error: 'Path is required' });
-    try {
-      const content = await git.show([`HEAD:${filePath}`]);
-      return { success: true, content };
-    } catch (error: any) {
-      if (error.message.includes("exists on disk, but not in 'HEAD'") || 
-          error.message.includes("does not exist in 'HEAD'") || 
-          error.message.includes("unknown revision")) {
-        return { success: true, content: '' };
-      }
-      return reply.status(500).send({ success: false, error: error.message });
+    const result = await resolveHeadContent(git, filePath);
+    if (!result.success) {
+      return reply.status(500).send(result);
     }
+    return result;
   });
 
   fastify.post('/api/git/remote', async (request, reply) => {

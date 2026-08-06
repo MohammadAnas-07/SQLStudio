@@ -225,3 +225,41 @@ export const stagedThenModifiedFileGitStatus: GitStatusResult = {
   tracking: null,
   isClean: () => false,
 };
+
+/** A file deleted from disk but not yet staged — raw code " D". */
+export const deletedFileGitStatus: GitStatusResult = {
+  not_added: [],
+  conflicted: [],
+  created: [],
+  deleted: ['gone.sql'],
+  modified: [],
+  renamed: [],
+  files: [
+    { path: 'gone.sql', index: ' ', working_dir: 'D' },
+  ],
+  staged: [],
+  ahead: 0,
+  behind: 0,
+  current: 'main',
+  tracking: null,
+  isClean: () => false,
+};
+
+/** A file deletion that has been staged (e.g. `git rm`) — raw code "D ". */
+export const stagedDeletedFileGitStatus: GitStatusResult = {
+  not_added: [],
+  conflicted: [],
+  created: [],
+  deleted: ['gone-staged.sql'],
+  modified: [],
+  renamed: [],
+  files: [
+    { path: 'gone-staged.sql', index: 'D', working_dir: ' ' },
+  ],
+  staged: ['gone-staged.sql'],
+  ahead: 0,
+  behind: 0,
+  current: 'main',
+  tracking: null,
+  isClean: () => false,
+};
