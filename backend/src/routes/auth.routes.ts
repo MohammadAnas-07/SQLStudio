@@ -20,8 +20,26 @@ export async function authRoutes(fastify: FastifyInstance) {
       }
 
       const passwordHash = await bcrypt.hash(password, 10);
-      const user = await prisma.user.create({
-        data: { email, name, password: passwordHash },
+      // Every user needs a DatabaseConnection row of their own: QueryHistory
+      // and AiConversation both require a non-null connectionId, and there's
+      // no UI/API path for a user to create one for themselves later. Create
+      // it in the same transaction as the user so registration either fully
+      // succeeds (both rows exist) or fully fails (no orphaned user stuck
+      // without a connection) — mirrors what seed-metadata.ts does for the
+      // bootstrap admin, just per-user instead of a one-time global default.
+      const user = await prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: { email, name, password: passwordHash },
+        });
+        await tx.databaseConnection.create({
+          data: {
+            name: 'Local PGLite',
+            type: 'postgresql',
+            database: 'pgdata',
+            userId: created.id,
+          },
+        });
+        return created;
       });
 
       const token = fastify.jwt.sign({ id: user.id, email: user.email });

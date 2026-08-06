@@ -156,79 +156,6 @@ fastify.get('/api/schema', async (request, reply) => {
   }
 });
 
-fastify.post('/api/query/execute', async (request, reply) => {
-  const { query } = request.body as { query: string };
-  
-  if (!query || query.trim() === '') {
-    return { success: false, error: 'Query cannot be empty' };
-  }
-
-  const start = performance.now();
-  let executionTimeMs = 0;
-  let status = 'error';
-  let errorMessage = '';
-
-  try {
-    const results = await db.exec(query);
-    const lastResult = Array.isArray(results) ? results[results.length - 1] : results;
-    const columns = lastResult.fields ? lastResult.fields.map((f: any) => f.name) : [];
-    
-    executionTimeMs = Math.round(performance.now() - start);
-    status = 'success';
-
-    // Log to query history
-    const user = await prisma.user.findFirst();
-    const connection = await prisma.databaseConnection.findFirst();
-    if (user && connection) {
-      await prisma.queryHistory.create({
-        data: {
-          query,
-          status,
-          executionTimeMs,
-          connectionId: connection.id,
-          userId: user.id
-        }
-      });
-    }
-
-    return {
-      success: true,
-      data: {
-        columns,
-        rows: lastResult.rows || [],
-        rowCount: lastResult.rows ? lastResult.rows.length : 0,
-        executionTimeMs,
-        affectedRows: lastResult.affectedRows || 0
-      }
-    };
-  } catch (error: any) {
-    executionTimeMs = Math.round(performance.now() - start);
-    errorMessage = error.message;
-
-    // Log error to query history
-    const user = await prisma.user.findFirst();
-    const connection = await prisma.databaseConnection.findFirst();
-    if (user && connection) {
-      await prisma.queryHistory.create({
-        data: {
-          query,
-          status,
-          executionTimeMs,
-          errorMessage,
-          connectionId: connection.id,
-          userId: user.id
-        }
-      });
-    }
-
-    return {
-      success: false,
-      error: errorMessage,
-      executionTimeMs
-    };
-  }
-});
-
 // Dashboard stats endpoint
 fastify.get('/api/dashboard/stats', async (request, reply) => {
   try {
@@ -261,68 +188,6 @@ fastify.get('/api/dashboard/stats', async (request, reply) => {
   }
 });
 
-// Query history endpoint
-fastify.get('/api/history', async (request, reply) => {
-  try {
-    const history = await prisma.queryHistory.findMany({
-      where: { userId: request.user.id },
-      orderBy: { createdAt: 'desc' },
-      take: 100
-    });
-    return { success: true, history };
-  } catch (error: any) {
-    return reply.status(500).send({ success: false, error: error.message });
-  }
-});
-
-// Saved queries endpoints
-fastify.get('/api/saved-queries', async (request, reply) => {
-  try {
-    const saved = await prisma.savedQuery.findMany({
-      orderBy: { updatedAt: 'desc' }
-    });
-    return { success: true, savedQueries: saved };
-  } catch (error: any) {
-    return reply.status(500).send({ success: false, error: error.message });
-  }
-});
-
-fastify.post('/api/saved-queries', async (request, reply) => {
-  const { name, description, query } = request.body as { name: string, description?: string, query: string };
-  try {
-    const user = await prisma.user.findFirst();
-    const connection = await prisma.databaseConnection.findFirst();
-    
-    if (!user || !connection) {
-      throw new Error('Default user or connection not found');
-    }
-
-    const saved = await prisma.savedQuery.create({
-      data: {
-        name,
-        description,
-        query,
-        connectionId: connection.id,
-        userId: user.id
-      }
-    });
-    return { success: true, savedQuery: saved };
-  } catch (error: any) {
-    return reply.status(500).send({ success: false, error: error.message });
-  }
-});
-fastify.delete('/api/saved-queries/:id', async (request, reply) => {
-  const { id } = request.params as { id: string };
-  try {
-    await prisma.savedQuery.delete({
-      where: { id }
-    });
-    return { success: true };
-  } catch (error: any) {
-    return reply.status(500).send({ success: false, error: error.message });
-  }
-});
-
 fastify.delete('/api/database/:name', async (request, reply) => {
   const { name } = request.params as { name: string };
   try {
@@ -344,6 +209,7 @@ fastify.delete('/api/database/:name', async (request, reply) => {
 });
 
 import { gitRoutes } from './routes/git.routes';
+import { queriesRoutes } from './routes/queries.routes';
 
 const start = async () => {
   try {
@@ -353,6 +219,7 @@ const start = async () => {
     await aiRoutes(fastify);
     await fileRoutes(fastify);
     await gitRoutes(fastify);
+    await queriesRoutes(fastify);
     await fastify.listen({ port: 3000, host: '0.0.0.0' });
     console.log('Backend listening on port 3000');
   } catch (err) {
