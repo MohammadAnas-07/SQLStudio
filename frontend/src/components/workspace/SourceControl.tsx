@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useGitStatus, useGitMutations } from '@/lib/hooks/useGit';
-import { File as FileIcon, Plus, Minus, Loader2, Check } from 'lucide-react';
+import { File as FileIcon, Plus, Minus, Loader2, Check, AlertTriangle } from 'lucide-react';
 
 export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) => void }) {
   const { data: gitStatus, isLoading } = useGitStatus();
@@ -11,18 +11,29 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
     return <div className="flex justify-center p-4"><Loader2 className="animate-spin text-muted-foreground" size={20} /></div>;
   }
 
+  // Unresolved merge conflicts take visual priority over every other status.
+  // Use the typed `conflicted` field (already populated by the backend) so
+  // these files get their own section instead of hiding inside
+  // Staged/Changes looking like an ordinary Added/Modified file.
+  const conflictedFiles = gitStatus?.conflicted || [];
+  const conflictedPaths = new Set(conflictedFiles);
+  const hasConflicts = conflictedFiles.length > 0;
+
   // simple-git doesn't add renamed entries to `staged`, even though a rename
   // reported by `git status` is staged in the index. Use the typed `renamed`
   // field (clean from/to paths) rather than re-deriving them from raw codes.
   const renamedFiles = gitStatus?.renamed || [];
   const renamedToPaths = new Set(renamedFiles.map(r => r.to));
 
-  const stagedFiles = [...(gitStatus?.staged || []), ...renamedFiles.map(r => r.to)];
+  const stagedFiles = [...(gitStatus?.staged || []), ...renamedFiles.map(r => r.to)]
+    .filter(path => !conflictedPaths.has(path));
   const hasStaged = stagedFiles.length > 0;
 
-  // Untracked, modified, deleted (unstaged). Renamed files are rendered via
-  // stagedFiles/renamedFiles above, so exclude them here to avoid duplicates.
+  // Untracked, modified, deleted (unstaged). Conflicted files are rendered
+  // via their own Merge Conflicts section, and renamed files via
+  // stagedFiles/renamedFiles above, so exclude both here to avoid duplicates.
   const unstagedFiles = (gitStatus?.files || []).filter(f => {
+    if (conflictedPaths.has(f.path)) return false;
     if (renamedToPaths.has(f.path)) return false;
     // If it's only staged (index = A/M/D, working_dir = ' '), skip
     if (f.working_dir === ' ' && f.index !== ' ' && f.index !== '?') return false;
@@ -32,7 +43,13 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
   const getFileIconAndColor = (f: { index: string, working_dir: string }) => {
     let letter = '';
     let color = '';
-    if (f.index === '?' && f.working_dir === '?') {
+    // Fallback safety net: recognize git's raw unmerged codes (UU/AU/UA/DD/DU/UD)
+    // even if a path was somehow missing from the typed `conflicted` array.
+    // The typed array (checked via `conflictedPaths` in renderFile) is the
+    // primary source of truth and always takes priority over this.
+    if (f.index === 'U' || f.working_dir === 'U' || (f.index === 'A' && f.working_dir === 'A') || (f.index === 'D' && f.working_dir === 'D')) {
+      letter = 'C'; color = 'text-orange-500';
+    } else if (f.index === '?' && f.working_dir === '?') {
       letter = 'U'; color = 'text-green-400';
     } else if (f.index === 'R' || f.working_dir === 'R') {
       letter = 'R'; color = 'text-blue-400';
@@ -54,13 +71,19 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
   };
 
   const renderFile = (filePath: string, isStaged: boolean) => {
+    // Conflict status is checked first and wins over everything else — a
+    // conflicted file might also technically show as modified, but the
+    // conflict badge must be what the user sees.
+    const isConflicted = conflictedPaths.has(filePath);
     // Prefer the typed `renamed` entry (clean from/to) over re-deriving it
     // from the raw NUL-joined path/index codes in `files`.
-    const renameInfo = renamedFiles.find(r => r.to === filePath);
+    const renameInfo = !isConflicted ? renamedFiles.find(r => r.to === filePath) : undefined;
     const fileData = gitStatus?.files.find(f => f.path === filePath);
-    const { letter, color } = renameInfo
-      ? { letter: 'R', color: 'text-blue-400' }
-      : (fileData ? getFileIconAndColor(fileData) : { letter: '', color: '' });
+    const { letter, color } = isConflicted
+      ? { letter: 'C', color: 'text-orange-500' }
+      : renameInfo
+        ? { letter: 'R', color: 'text-blue-400' }
+        : (fileData ? getFileIconAndColor(fileData) : { letter: '', color: '' });
     const fileName = filePath.split('/').pop() || filePath;
     const folderPath = filePath.split('/').slice(0, -1).join('/');
     const oldName = renameInfo ? (renameInfo.from.split('/').pop() || renameInfo.from) : null;
@@ -74,18 +97,18 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
             onFileSelect(filePath);
           }
         }}
-        title={renameInfo ? `${renameInfo.from} → ${renameInfo.to}` : undefined}
+        title={isConflicted ? 'Unresolved merge conflict' : renameInfo ? `${renameInfo.from} → ${renameInfo.to}` : undefined}
       >
         <FileIcon size={14} className="text-muted-foreground shrink-0" />
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden leading-tight">
-          <span className={`truncate ${color}`}>
+          <span className={`truncate ${color} ${isConflicted ? 'font-bold' : ''}`}>
             {oldName ? <>{oldName} <span className="text-muted-foreground">&rarr;</span> {fileName}</> : fileName}
           </span>
           {folderPath && <span className="text-[10px] text-muted-foreground truncate">{folderPath}</span>}
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           {isStaged ? (
-            <button 
+            <button
               className="p-1 hover:bg-canvas-night rounded text-muted-foreground hover:text-foreground"
               onClick={(e) => { e.stopPropagation(); unstage.mutate(filePath); }}
               title="Unstage Changes"
@@ -93,7 +116,7 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
               <Minus size={14} />
             </button>
           ) : (
-            <button 
+            <button
               className="p-1 hover:bg-canvas-night rounded text-muted-foreground hover:text-foreground"
               onClick={(e) => { e.stopPropagation(); stage.mutate(filePath); }}
               title="Stage Changes"
@@ -102,7 +125,16 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
             </button>
           )}
         </div>
-        <span className={`text-[10px] font-bold ${color} w-3 text-center shrink-0`}>{letter}</span>
+        {isConflicted ? (
+          <span
+            className="flex items-center gap-0.5 text-[10px] font-bold text-white bg-red-600 rounded px-1 py-0.5 shrink-0"
+            title="Unresolved merge conflict"
+          >
+            <AlertTriangle size={10} /> C
+          </span>
+        ) : (
+          <span className={`text-[10px] font-bold ${color} w-3 text-center shrink-0`}>{letter}</span>
+        )}
       </div>
     );
   };
@@ -111,11 +143,19 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
     <div className="flex flex-col h-full bg-canvas-soft select-none overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2 border-b border-border">
         <span className="text-xs font-semibold text-muted-foreground tracking-wider flex items-center gap-1">
-          SOURCE CONTROL <span className="bg-canvas-night px-1.5 py-0.5 rounded text-[10px] ml-1">{stagedFiles.length + unstagedFiles.length}</span>
+          SOURCE CONTROL <span className="bg-canvas-night px-1.5 py-0.5 rounded text-[10px] ml-1">{stagedFiles.length + unstagedFiles.length + conflictedFiles.length}</span>
         </span>
       </div>
 
       <div className="p-3 border-b border-border shrink-0 flex flex-col gap-2">
+        {hasConflicts && (
+          <div className="flex items-start gap-2 bg-red-600/15 border border-red-600/40 rounded p-2 text-xs text-red-500">
+            <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+            <span>
+              {conflictedFiles.length} unresolved merge {conflictedFiles.length === 1 ? 'conflict' : 'conflicts'}. Resolve {conflictedFiles.length === 1 ? 'it' : 'them'} before committing.
+            </span>
+          </div>
+        )}
         <textarea
           value={commitMessage}
           onChange={(e) => setCommitMessage(e.target.value)}
@@ -138,6 +178,19 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
       </div>
 
       <div className="flex-1 overflow-auto py-2 flex flex-col gap-4">
+        {hasConflicts && (
+          <div>
+            <div className="px-3 py-1 flex items-center gap-1.5">
+              <AlertTriangle size={12} className="text-red-500 shrink-0" />
+              <span className="text-xs font-bold text-red-500">Merge Conflicts</span>
+              <span className="bg-red-600 text-white px-1.5 py-0.5 rounded text-[10px]">{conflictedFiles.length}</span>
+            </div>
+            <div className="mt-1">
+              {conflictedFiles.map(f => renderFile(f, false))}
+            </div>
+          </div>
+        )}
+
         {stagedFiles.length > 0 && (
           <div>
             <div className="px-3 py-1 flex justify-between items-center group">
