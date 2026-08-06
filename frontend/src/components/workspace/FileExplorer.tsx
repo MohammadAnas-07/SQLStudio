@@ -92,21 +92,26 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
     return map;
   }, [gitStatus]);
 
-  // Compute folder statuses (has changed children) — treats a folder git
-  // collapsed into one line (isFolderEntry, e.g. a whole new untracked
-  // directory) the same as a folder git listed via N individual changed
-  // files underneath it: either way, the folder itself and every ancestor
-  // above it get the "has changes" indicator.
+  // Aggregate change counts per folder (has changed children) — treats a
+  // folder git collapsed into one line (isFolderEntry, e.g. a whole new
+  // untracked directory) the same as a folder git listed via N individual
+  // changed files underneath it: either way, the folder itself and every
+  // ancestor above it get counted. A collapsed folder-entry counts as 1
+  // (git didn't enumerate its contents, so 1 changed item — the folder
+  // itself — is all we actually know); a normal file entry counts as 1
+  // changed file under every ancestor folder, same as VS Code's per-folder
+  // change count.
   const folderStatuses = React.useMemo(() => {
-    const map: Record<string, boolean> = {};
+    const map: Record<string, number> = {};
     Object.entries(fileStatuses).forEach(([entryPath, info]) => {
       if (info.isFolderEntry) {
-        map[entryPath] = true;
+        map[entryPath] = (map[entryPath] || 0) + 1;
       }
       const parts = entryPath.split('/');
       parts.pop(); // remove the last segment (file name, or the folder's own name for a folder entry)
       while (parts.length > 0) {
-        map[parts.join('/')] = true;
+        const folderPath = parts.join('/');
+        map[folderPath] = (map[folderPath] || 0) + 1;
         parts.pop();
       }
     });
@@ -228,7 +233,8 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
           }
         }
       }
-      const folderHasChanges = node.isDir && folderStatuses[node.path];
+      const folderChangeCount = folderStatuses[node.path] || 0;
+      const folderHasChanges = node.isDir && folderChangeCount > 0;
       const folderHasConflict = node.isDir && folderConflictStatuses[node.path];
 
       const rowTitle = gitStatusInfo?.conflict
@@ -267,9 +273,14 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
             {/* Git Badges */}
             {node.isDir && folderHasChanges && (
               <div
-                className={`w-2 h-2 rounded-full mr-1 shrink-0 ${folderHasConflict ? 'bg-red-600 ring-2 ring-red-400/60' : 'bg-blue-500'}`}
-                title={folderHasConflict ? 'Contains unresolved merge conflicts' : undefined}
-              />
+                className="flex items-center gap-1 mr-1 shrink-0"
+                title={folderHasConflict ? 'Contains unresolved merge conflicts' : `${folderChangeCount} changed ${folderChangeCount === 1 ? 'item' : 'items'}`}
+              >
+                <span className="text-[10px] text-muted-foreground font-medium tabular-nums leading-none">
+                  {folderChangeCount}
+                </span>
+                <div className={`w-2 h-2 rounded-full shrink-0 ${folderHasConflict ? 'bg-red-600 ring-2 ring-red-400/60' : 'bg-blue-500'}`} />
+              </div>
             )}
             {!node.isDir && gitStatusInfo && (
               gitStatusInfo.conflict ? (
