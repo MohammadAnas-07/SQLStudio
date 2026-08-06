@@ -30,7 +30,7 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
 
   // Compute file statuses map
   const fileStatuses = React.useMemo(() => {
-    const map: Record<string, { letter: string, color: string, renamedFrom?: string, conflict?: boolean }> = {};
+    const map: Record<string, { letter: string, color: string, renamedFrom?: string, conflict?: boolean, isFolderEntry?: boolean }> = {};
     if (!gitStatus) return map;
 
     // Strip trailing slash that git sometimes adds for untracked directories
@@ -58,7 +58,13 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
         letter = 'D'; color = 'text-red-500';
       }
       if (letter) {
-        map[normalizedPath] = { letter, color };
+        // A trailing slash on the raw path means git collapsed a whole
+        // untracked directory into one line (e.g. "?? new-folder/") instead
+        // of listing its files individually — this entry's path IS a
+        // folder, not a file, and the folder-level indicator logic below
+        // needs to know that to mark it directly rather than treating it as
+        // a file whose parent should be marked.
+        map[normalizedPath] = { letter, color, isFolderEntry: f.path.endsWith('/') };
       }
     });
 
@@ -79,12 +85,19 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
     return map;
   }, [gitStatus]);
 
-  // Compute folder statuses (has changed children)
+  // Compute folder statuses (has changed children) — treats a folder git
+  // collapsed into one line (isFolderEntry, e.g. a whole new untracked
+  // directory) the same as a folder git listed via N individual changed
+  // files underneath it: either way, the folder itself and every ancestor
+  // above it get the "has changes" indicator.
   const folderStatuses = React.useMemo(() => {
     const map: Record<string, boolean> = {};
-    Object.keys(fileStatuses).forEach(filePath => {
-      const parts = filePath.split('/');
-      parts.pop(); // remove file name
+    Object.entries(fileStatuses).forEach(([entryPath, info]) => {
+      if (info.isFolderEntry) {
+        map[entryPath] = true;
+      }
+      const parts = entryPath.split('/');
+      parts.pop(); // remove the last segment (file name, or the folder's own name for a folder entry)
       while (parts.length > 0) {
         map[parts.join('/')] = true;
         parts.pop();
