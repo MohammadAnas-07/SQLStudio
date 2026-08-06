@@ -272,3 +272,73 @@ describe('FileExplorer - untracked vs added contrast', () => {
     expect(untracked.className).not.toContain('green');
   });
 });
+
+describe('FileExplorer - folder change count badge', () => {
+  it('shows a count of 1 for a whole new folder git collapsed into one line', async () => {
+    mockGitStatus({ data: singleLineNewFolderGitStatus });
+    mockFilesResponse([
+      { name: 'new-folder', path: 'new-folder', isDir: true, children: [] },
+    ]);
+    renderWithClient(<FileExplorer />);
+
+    const folderName = await screen.findByText('new-folder');
+    const folderRow = folderName.closest('div');
+    expect(folderRow).toHaveTextContent('1');
+  });
+
+  it('shows a count of 2 for a folder with two individually-modified children', async () => {
+    mockGitStatus({ data: folderWithModifiedChildrenGitStatus });
+    mockFilesResponse([
+      {
+        name: 'existing-folder', path: 'existing-folder', isDir: true, children: [
+          { name: 'a.sql', path: 'existing-folder/a.sql', isDir: false },
+          { name: 'b.sql', path: 'existing-folder/b.sql', isDir: false },
+        ],
+      },
+    ]);
+    renderWithClient(<FileExplorer />);
+
+    const folderName = await screen.findByText('existing-folder');
+    const folderRow = folderName.closest('div');
+    expect(folderRow).toHaveTextContent('2');
+  });
+
+  it('aggregates the count up through every ancestor folder, not just the immediate parent', async () => {
+    mockGitStatus({
+      data: {
+        not_added: [],
+        conflicted: [],
+        created: [],
+        deleted: [],
+        modified: ['src/utils/a.sql', 'src/utils/b.sql'],
+        renamed: [],
+        files: [
+          { path: 'src/utils/a.sql', index: ' ', working_dir: 'M' },
+          { path: 'src/utils/b.sql', index: ' ', working_dir: 'M' },
+        ],
+        staged: [],
+        ahead: 0,
+        behind: 0,
+        current: 'main',
+        tracking: null,
+        isClean: () => false,
+      },
+    });
+    mockFilesResponse([
+      {
+        name: 'src', path: 'src', isDir: true, children: [
+          {
+            name: 'utils', path: 'src/utils', isDir: true, children: [
+              { name: 'a.sql', path: 'src/utils/a.sql', isDir: false },
+              { name: 'b.sql', path: 'src/utils/b.sql', isDir: false },
+            ],
+          },
+        ],
+      },
+    ]);
+    renderWithClient(<FileExplorer />);
+
+    const srcRow = (await screen.findByText('src')).closest('div');
+    expect(srcRow).toHaveTextContent('2');
+  });
+});
