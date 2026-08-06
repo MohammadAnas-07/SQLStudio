@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Folder, File as FileIcon, FolderPlus, FilePlus, Edit2, Trash2, ChevronRight, ChevronDown, Loader2, RefreshCw } from 'lucide-react';
+import { Folder, File as FileIcon, FolderPlus, FilePlus, Edit2, Trash2, ChevronRight, ChevronDown, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useGitStatus } from '@/lib/hooks/useGit';
 import { apiFetch } from '@/lib/api';
 
@@ -30,10 +30,17 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
 
   // Compute file statuses map
   const fileStatuses = React.useMemo(() => {
-    const map: Record<string, { letter: string, color: string, renamedFrom?: string }> = {};
+    const map: Record<string, { letter: string, color: string, renamedFrom?: string, conflict?: boolean }> = {};
     if (!gitStatus) return map;
 
+    // Strip trailing slash that git sometimes adds for untracked directories
+    const conflictedPaths = new Set((gitStatus.conflicted || []).map(p => p.replace(/\/$/, '')));
+
     gitStatus.files.forEach(f => {
+      const normalizedPath = f.path.replace(/\/$/, '');
+      // Conflicts are handled last (below) using the typed `conflicted` field
+      // so they always win — skip them here regardless of their raw codes.
+      if (conflictedPaths.has(normalizedPath)) return;
       // Renames are handled below using the typed `renamed` field, which has
       // clean from/to paths instead of the raw NUL-joined path/index codes.
       if (f.index === 'R' || f.working_dir === 'R') return;
@@ -51,8 +58,6 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
         letter = 'D'; color = 'text-red-500';
       }
       if (letter) {
-        // Strip trailing slash that git sometimes adds for untracked directories
-        const normalizedPath = f.path.replace(/\/$/, '');
         map[normalizedPath] = { letter, color };
       }
     });
@@ -60,7 +65,15 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
     // Renamed files: reflect the file at its NEW path with a distinct badge/color.
     (gitStatus.renamed || []).forEach(r => {
       const normalizedPath = r.to.replace(/\/$/, '');
+      if (conflictedPaths.has(normalizedPath)) return;
       map[normalizedPath] = { letter: 'R', color: 'text-blue-400', renamedFrom: r.from };
+    });
+
+    // Unresolved merge conflicts always win, overriding any Added/Modified/
+    // Deleted/Renamed classification computed above — a conflicted file must
+    // never look like an ordinary change.
+    conflictedPaths.forEach(path => {
+      map[path] = { letter: 'C', color: 'text-orange-500', conflict: true };
     });
 
     return map;
@@ -72,6 +85,22 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
     Object.keys(fileStatuses).forEach(filePath => {
       const parts = filePath.split('/');
       parts.pop(); // remove file name
+      while (parts.length > 0) {
+        map[parts.join('/')] = true;
+        parts.pop();
+      }
+    });
+    return map;
+  }, [fileStatuses]);
+
+  // Folders that contain an unresolved conflict get a distinct warning dot
+  // instead of the generic "has changes" dot.
+  const folderConflictStatuses = React.useMemo(() => {
+    const map: Record<string, boolean> = {};
+    Object.entries(fileStatuses).forEach(([filePath, info]) => {
+      if (!info.conflict) return;
+      const parts = filePath.split('/');
+      parts.pop();
       while (parts.length > 0) {
         map[parts.join('/')] = true;
         parts.pop();
@@ -180,10 +209,17 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
         }
       }
       const folderHasChanges = node.isDir && folderStatuses[node.path];
-      
+      const folderHasConflict = node.isDir && folderConflictStatuses[node.path];
+
+      const rowTitle = gitStatusInfo?.conflict
+        ? 'Unresolved merge conflict'
+        : gitStatusInfo?.renamedFrom
+          ? `Renamed from ${gitStatusInfo.renamedFrom}`
+          : undefined;
+
       return (
         <div key={node.path}>
-          <div 
+          <div
             className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:bg-canvas-night-soft hover:text-foreground cursor-pointer rounded-sm group"
             style={{ paddingLeft: `${depth * 12 + 8}px` }}
             onClick={() => {
@@ -194,7 +230,7 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
               }
             }}
             onContextMenu={(e) => handleContextMenu(e, node.path, node.isDir)}
-            title={gitStatusInfo?.renamedFrom ? `Renamed from ${gitStatusInfo.renamedFrom}` : undefined}
+            title={rowTitle}
           >
             <div className="shrink-0 w-4 flex items-center justify-center">
               {node.isDir ? (
@@ -206,14 +242,26 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
             ) : (
               <FileIcon size={14} className="text-muted-foreground shrink-0" />
             )}
-            <span className={`truncate flex-1 ${gitStatusInfo ? gitStatusInfo.color : ''}`}>{node.name}</span>
+            <span className={`truncate flex-1 ${gitStatusInfo ? gitStatusInfo.color : ''} ${gitStatusInfo?.conflict ? 'font-bold' : ''}`}>{node.name}</span>
 
             {/* Git Badges */}
             {node.isDir && folderHasChanges && (
-              <div className="w-2 h-2 rounded-full bg-blue-500 mr-1 shrink-0" />
+              <div
+                className={`w-2 h-2 rounded-full mr-1 shrink-0 ${folderHasConflict ? 'bg-red-600 ring-2 ring-red-400/60' : 'bg-blue-500'}`}
+                title={folderHasConflict ? 'Contains unresolved merge conflicts' : undefined}
+              />
             )}
             {!node.isDir && gitStatusInfo && (
-              <span className={`text-[10px] font-bold ${gitStatusInfo.color} shrink-0 pr-1`}>{gitStatusInfo.letter}</span>
+              gitStatusInfo.conflict ? (
+                <span
+                  className="flex items-center gap-0.5 text-[10px] font-bold text-white bg-red-600 rounded px-1 py-0.5 shrink-0 mr-1"
+                  title="Unresolved merge conflict"
+                >
+                  <AlertTriangle size={10} /> C
+                </span>
+              ) : (
+                <span className={`text-[10px] font-bold ${gitStatusInfo.color} shrink-0 pr-1`}>{gitStatusInfo.letter}</span>
+              )
             )}
           </div>
           {node.isDir && expandedFolders[node.path] && node.children && (
