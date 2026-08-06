@@ -8,6 +8,9 @@ import {
   conflictedAndModifiedFileGitStatus,
   conflictAndRenameGitStatus,
   conflictWithOtherStagedFileGitStatus,
+  stagedOnlyFileGitStatus,
+  unstagedOnlyFileGitStatus,
+  stagedThenModifiedFileGitStatus,
 } from '@/test/fixtures/gitStatus';
 import { useGitStatus } from '@/lib/hooks/useGit';
 
@@ -195,5 +198,50 @@ describe('SourceControl - commit confirmation when conflicts are present', () =>
 
     expect(screen.queryByText('Unresolved merge conflicts')).not.toBeInTheDocument();
     expect(mockCommitMutate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('SourceControl - section-aware status (index vs working_dir)', () => {
+  it('shows A in Staged Changes for a file staged as Added with nothing further pending', () => {
+    mockGitStatus({ data: stagedOnlyFileGitStatus, isLoading: false });
+    render(<SourceControl />);
+
+    const stagedSection = screen.getByText('Staged Changes').closest('div')?.parentElement as HTMLElement;
+    expect(within(stagedSection).getByText('staged.ts')).toBeInTheDocument();
+    expect(within(stagedSection).getByText('A')).toBeInTheDocument();
+    expect(screen.queryByText('Changes')).not.toBeInTheDocument();
+  });
+
+  it('shows M in Changes for a file modified in the working tree and never staged', () => {
+    mockGitStatus({ data: unstagedOnlyFileGitStatus, isLoading: false });
+    render(<SourceControl />);
+
+    const changesSection = screen.getByText('Changes').closest('div')?.parentElement as HTMLElement;
+    expect(within(changesSection).getByText('unstaged.ts')).toBeInTheDocument();
+    expect(within(changesSection).getByText('M')).toBeInTheDocument();
+    expect(screen.queryByText('Staged Changes')).not.toBeInTheDocument();
+  });
+
+  it('shows A in Staged Changes and M in Changes for the same file staged then further edited', () => {
+    mockGitStatus({ data: stagedThenModifiedFileGitStatus, isLoading: false });
+    render(<SourceControl />);
+
+    const stagedSection = screen.getByText('Staged Changes').closest('div')?.parentElement as HTMLElement;
+    const changesSection = screen.getByText('Changes').closest('div')?.parentElement as HTMLElement;
+
+    // Same path, present in both sections...
+    expect(within(stagedSection).getByText('combo.ts')).toBeInTheDocument();
+    expect(within(changesSection).getByText('combo.ts')).toBeInTheDocument();
+
+    // ...but with different badges: index ('A') in Staged, working_dir ('M') in Changes.
+    const stagedBadge = within(stagedSection).getByText('A');
+    expect(stagedBadge.className).toContain('text-green-500');
+
+    const changesBadge = within(changesSection).getByText('M');
+    expect(changesBadge.className).toContain('text-yellow-500');
+
+    // Never the wrong badge in the wrong section.
+    expect(within(stagedSection).queryByText('M')).not.toBeInTheDocument();
+    expect(within(changesSection).queryByText('A')).not.toBeInTheDocument();
   });
 });
