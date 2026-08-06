@@ -6,6 +6,7 @@ import SQLWorkspace from './pages/SQLWorkspace';
 import Dashboard from './pages/Dashboard';
 import QueryHistory from './pages/QueryHistory';
 import SavedQueries from './pages/SavedQueries';
+import SharedQuery from './pages/SharedQuery';
 import Login from './pages/Login';
 import { useAuthStore } from './store/authStore';
 import './index.css';
@@ -26,6 +27,9 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          {/* Public, unauthenticated — reachable by anyone with a share
+              link, logged in or not. Must stay outside ProtectedRoute. */}
+          <Route path="/share/:token" element={<SharedQuery />} />
           <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route index element={<Navigate to="/workspace" replace />} />
             <Route path="dashboard" element={<Dashboard />} />

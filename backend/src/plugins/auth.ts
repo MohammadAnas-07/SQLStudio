@@ -23,13 +23,19 @@ declare module 'fastify' {
 // Routes that must remain reachable without a token.
 // /api/terminal is exempt here because its websocket upgrade is authenticated
 // explicitly in index.ts (a preHandler hook cannot protect a socket upgrade).
-const PUBLIC_PATHS = ['/ping', '/api/auth/'];
+// /api/public/ is a deliberately-reserved prefix for endpoints designed to be
+// world-readable without auth (currently just the shared-query view) — see
+// GET /api/public/shared-queries/:token in queries.routes.ts. Anything new
+// added under this prefix is public by construction, so treat adding a route
+// here as a security-relevant change, not routine.
+const PUBLIC_PATHS = ['/ping', '/api/auth/', '/api/public/'];
 
 function isPublicPath(url: string): boolean {
   const path = url.split('?')[0];
   if (path === '/ping') return true;
   if (path.startsWith('/api/auth/')) return true;
   if (path.startsWith('/api/terminal')) return true;
+  if (path.startsWith('/api/public/')) return true;
   return false;
 }
 

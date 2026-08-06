@@ -57,6 +57,13 @@ model SavedQuery {
   user         User               @relation(fields: [userId], references: [id])
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
+
+  // Public read-only sharing. A non-null token means sharing is on — there
+  // is deliberately no separate isShared boolean, so there's no way for
+  // "shared" and "has a token" to disagree. The public share-view endpoint
+  // (GET /api/public/shared-queries/:token) must only ever select {name,
+  // query} for this row — see queries.routes.ts and its tests.
+  shareToken   String?            @unique
 }
 
 // Flat, one level — a folder has no parent/children. Nesting would need

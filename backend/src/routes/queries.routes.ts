@@ -1,5 +1,13 @@
 import { FastifyInstance } from 'fastify';
+import crypto from 'crypto';
 import { prisma, db } from '../database';
+
+// 256 bits of randomness, URL-safe — unguessable by construction (not a
+// sequential id, not derived from anything predictable like the query id
+// or a timestamp).
+function generateShareToken(): string {
+  return crypto.randomBytes(32).toString('base64url');
+}
 
 // Extracted out of index.ts (which otherwise inlines routes directly on a
 // module-scoped Fastify instance that calls .listen() immediately) so these
@@ -171,6 +179,89 @@ export async function queriesRoutes(fastify: FastifyInstance) {
       }
       const savedQuery = await prisma.savedQuery.findUnique({ where: { id } });
       return { success: true, savedQuery };
+    } catch (error: any) {
+      return reply.status(500).send({ success: false, error: error.message });
+    }
+  });
+
+  // Turns on public sharing for a query, or rotates its link if sharing is
+  // already on — every call issues a brand-new token, so this doubles as
+  // "regenerate my link" (e.g. if an old link leaked, calling this again
+  // kills it and hands back a fresh one). Owner-only, same IDOR-safe
+  // updateMany-with-compound-where pattern as every other mutation here.
+  fastify.post('/api/saved-queries/:id/share', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const userId = request.user.id;
+    try {
+      const shareToken = generateShareToken();
+      const result = await prisma.savedQuery.updateMany({
+        where: { id, userId },
+        data: { shareToken }
+      });
+      if (result.count === 0) {
+        return reply.status(404).send({ success: false, error: 'Saved query not found' });
+      }
+      return { success: true, shareToken };
+    } catch (error: any) {
+      return reply.status(500).send({ success: false, error: error.message });
+    }
+  });
+
+  // Turns off public sharing. Nulling shareToken here is also what makes an
+  // old link's 404 indistinguishable from a link that was never valid —
+  // GET /api/public/shared-queries/:token below does a plain lookup by
+  // token, so once it's null there is simply nothing left to find.
+  fastify.delete('/api/saved-queries/:id/share', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const userId = request.user.id;
+    try {
+      const result = await prisma.savedQuery.updateMany({
+        where: { id, userId },
+        data: { shareToken: null }
+      });
+      if (result.count === 0) {
+        return reply.status(404).send({ success: false, error: 'Saved query not found' });
+      }
+      return { success: true };
+    } catch (error: any) {
+      return reply.status(500).send({ success: false, error: error.message });
+    }
+  });
+
+  // PUBLIC — no auth, exempted in plugins/auth.ts via the /api/public/
+  // prefix. Rate-limited (config.rateLimit below) since this is the one
+  // endpoint in the whole API an anonymous caller can hit at all.
+  //
+  // Returns ONLY { name, query } via an explicit Prisma `select` — never a
+  // spread of the row. That's deliberate: a spread (`{ ...savedQuery }`)
+  // would silently start leaking connectionId, description, userId, or
+  // whatever else this model grows in the future the moment such a field
+  // is added, with nothing here forcing anyone to notice. The explicit
+  // select can't do that — a new field has to be added to it by hand
+  // before it's ever returned.
+  //
+  // A token that's invalid and a token whose query has sharing disabled
+  // produce the exact same 404 (same lookup, same miss) — there is no
+  // separate "found but not shared" branch to accidentally get right or
+  // wrong.
+  fastify.get('/api/public/shared-queries/:token', {
+    config: {
+      rateLimit: {
+        max: 20,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request, reply) => {
+    const { token } = request.params as { token: string };
+    try {
+      const shared = await prisma.savedQuery.findUnique({
+        where: { shareToken: token },
+        select: { name: true, query: true }
+      });
+      if (!shared) {
+        return reply.status(404).send({ success: false, error: 'Shared query not found' });
+      }
+      return { success: true, name: shared.name, query: shared.query };
     } catch (error: any) {
       return reply.status(500).send({ success: false, error: error.message });
     }
