@@ -3,7 +3,15 @@ import { useGitStatus, useGitMutations } from '@/lib/hooks/useGit';
 import { File as FileIcon, Plus, Minus, Loader2, Check, AlertTriangle } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
-export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) => void }) {
+interface SourceControlProps {
+  onFileSelect?: (path: string) => void;
+  // Deleted files ('D' status) have no current content on disk, so the
+  // normal file-select/diff flow (which reads the live file) is a dead
+  // end. Routed here instead, before ever reaching onFileSelect.
+  onDeletedFileSelect?: (path: string) => void;
+}
+
+export function SourceControl({ onFileSelect, onDeletedFileSelect }: SourceControlProps) {
   const { data: gitStatus, isLoading } = useGitStatus();
   const { stage, unstage, commit } = useGitMutations();
   const [commitMessage, setCommitMessage] = useState('');
@@ -121,9 +129,16 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
         key={filePath}
         className="flex items-center gap-2 px-2 py-1 hover:bg-canvas-night-soft cursor-pointer group text-sm"
         onClick={() => {
-          if (onFileSelect && !filePath.endsWith('/')) {
-            onFileSelect(filePath);
+          if (filePath.endsWith('/')) return;
+          // 'D' means the file no longer exists on disk — the normal
+          // diff flow reads the live file and would just dead-end in a
+          // generic "Failed to load diff" toast. Route it separately
+          // instead of ever dispatching to onFileSelect.
+          if (letter === 'D') {
+            onDeletedFileSelect?.(filePath);
+            return;
           }
+          onFileSelect?.(filePath);
         }}
         title={isConflicted ? 'Unresolved merge conflict' : renameInfo ? `${renameInfo.from} → ${renameInfo.to}` : undefined}
       >

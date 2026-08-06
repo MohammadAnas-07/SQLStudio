@@ -11,6 +11,8 @@ import {
   stagedOnlyFileGitStatus,
   unstagedOnlyFileGitStatus,
   stagedThenModifiedFileGitStatus,
+  deletedFileGitStatus,
+  stagedDeletedFileGitStatus,
 } from '@/test/fixtures/gitStatus';
 import { useGitStatus } from '@/lib/hooks/useGit';
 
@@ -243,5 +245,53 @@ describe('SourceControl - section-aware status (index vs working_dir)', () => {
     // Never the wrong badge in the wrong section.
     expect(within(stagedSection).queryByText('M')).not.toBeInTheDocument();
     expect(within(changesSection).queryByText('A')).not.toBeInTheDocument();
+  });
+});
+
+describe('SourceControl - clicking a deleted file', () => {
+  const onFileSelect = vi.fn();
+  const onDeletedFileSelect = vi.fn();
+
+  beforeEach(() => {
+    onFileSelect.mockClear();
+    onDeletedFileSelect.mockClear();
+  });
+
+  it('routes an unstaged deleted file to onDeletedFileSelect, never onFileSelect', () => {
+    mockGitStatus({ data: deletedFileGitStatus, isLoading: false });
+    render(<SourceControl onFileSelect={onFileSelect} onDeletedFileSelect={onDeletedFileSelect} />);
+
+    fireEvent.click(screen.getByText('gone.sql'));
+
+    expect(onDeletedFileSelect).toHaveBeenCalledWith('gone.sql');
+    expect(onFileSelect).not.toHaveBeenCalled();
+  });
+
+  it('routes a staged deletion to onDeletedFileSelect too', () => {
+    mockGitStatus({ data: stagedDeletedFileGitStatus, isLoading: false });
+    render(<SourceControl onFileSelect={onFileSelect} onDeletedFileSelect={onDeletedFileSelect} />);
+
+    fireEvent.click(screen.getByText('gone-staged.sql'));
+
+    expect(onDeletedFileSelect).toHaveBeenCalledWith('gone-staged.sql');
+    expect(onFileSelect).not.toHaveBeenCalled();
+  });
+
+  it('still routes a non-deleted file to onFileSelect exactly as before', () => {
+    mockGitStatus({ data: modifiedFileGitStatus, isLoading: false });
+    render(<SourceControl onFileSelect={onFileSelect} onDeletedFileSelect={onDeletedFileSelect} />);
+
+    fireEvent.click(screen.getByText('other.ts'));
+
+    expect(onFileSelect).toHaveBeenCalledWith('other.ts');
+    expect(onDeletedFileSelect).not.toHaveBeenCalled();
+  });
+
+  it('does not fall back to onFileSelect for a deleted file when onDeletedFileSelect is not wired up', () => {
+    mockGitStatus({ data: deletedFileGitStatus, isLoading: false });
+    render(<SourceControl onFileSelect={onFileSelect} />);
+
+    expect(() => fireEvent.click(screen.getByText('gone.sql'))).not.toThrow();
+    expect(onFileSelect).not.toHaveBeenCalled();
   });
 });
