@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
+import rateLimit from '@fastify/rate-limit';
 import { aiRoutes } from './routes/ai.routes';
 import { fileRoutes } from './routes/files.routes';
 import { authRoutes } from './routes/auth.routes';
@@ -30,6 +31,12 @@ fastify.register(cors, {
 });
 
 fastify.register(websocket);
+
+// global: false — registering this does not rate-limit anything by
+// default. Only routes that opt in via their own `config: { rateLimit }`
+// (the public share-view endpoint, see queries.routes.ts) are limited, so
+// this can never accidentally throttle an authenticated endpoint.
+fastify.register(rateLimit, { global: false });
 
 // Must run before any route is declared below: Fastify only applies a hook
 // to routes registered after it, so the global auth preHandler has to be

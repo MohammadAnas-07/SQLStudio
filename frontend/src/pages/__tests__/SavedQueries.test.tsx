@@ -24,7 +24,7 @@ function ok(body: unknown) {
   return new Response(JSON.stringify(body));
 }
 
-function savedQueriesResponse(items: Array<{ name: string; id?: string; folderId?: string | null }>) {
+function savedQueriesResponse(items: Array<{ name: string; id?: string; folderId?: string | null; shareToken?: string | null }>) {
   return ok({
     success: true,
     savedQueries: items.map((item, i) => ({
@@ -33,6 +33,7 @@ function savedQueriesResponse(items: Array<{ name: string; id?: string; folderId
       description: '',
       query: 'SELECT 1;',
       folderId: item.folderId ?? null,
+      shareToken: item.shareToken ?? null,
       updatedAt: new Date().toISOString(),
     })),
   });
@@ -44,6 +45,7 @@ function foldersResponse(folders: Array<{ id: string; name: string }>) {
 
 beforeEach(() => {
   vi.mocked(apiFetch).mockReset();
+  Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
 });
 
 describe('SavedQueries - search', () => {
@@ -199,5 +201,61 @@ describe('SavedQueries - folders', () => {
       expect(screen.queryByText('Not In Folder')).not.toBeInTheDocument();
     });
     expect(screen.getByText('In Folder')).toBeInTheDocument();
+  });
+});
+
+describe('SavedQueries - sharing', () => {
+  it('enables sharing via the Share button and copies the resulting link', async () => {
+    vi.mocked(apiFetch).mockImplementation(async (path: string, init?: RequestInit) => {
+      if (path === '/api/folders') return foldersResponse([]);
+      if (path === '/api/saved-queries/q1/share' && init?.method === 'POST') {
+        return ok({ success: true, shareToken: 'brand-new-token' });
+      }
+      if (path.startsWith('/api/saved-queries')) return savedQueriesResponse([{ id: 'q1', name: 'Orders', shareToken: null }]);
+      return ok({ success: true });
+    });
+
+    renderPage();
+    await screen.findByText('Orders');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    await screen.findByText('Share Query');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enable Sharing' }));
+
+    await waitFor(() => {
+      expect(vi.mocked(apiFetch)).toHaveBeenCalledWith('/api/saved-queries/q1/share', expect.objectContaining({ method: 'POST' }));
+    });
+
+    await waitFor(() => {
+      expect(vi.mocked(navigator.clipboard.writeText)).toHaveBeenCalledWith(expect.stringContaining('/share/brand-new-token'));
+    });
+  });
+
+  it('shows the existing link and disables sharing on confirm when a query is already shared', async () => {
+    vi.mocked(apiFetch).mockImplementation(async (path: string, init?: RequestInit) => {
+      if (path === '/api/folders') return foldersResponse([]);
+      if (path === '/api/saved-queries/q1/share' && init?.method === 'DELETE') {
+        return ok({ success: true });
+      }
+      if (path.startsWith('/api/saved-queries')) return savedQueriesResponse([{ id: 'q1', name: 'Orders', shareToken: 'existing-token' }]);
+      return ok({ success: true });
+    });
+
+    renderPage();
+    await screen.findByText('Orders');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    await screen.findByText('Share Query');
+
+    // The existing link is shown, not regenerated just by opening the modal.
+    const linkInput = screen.getByDisplayValue(/\/share\/existing-token$/);
+    expect(linkInput).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Disable Sharing' }));
+
+    await waitFor(() => {
+      expect(vi.mocked(apiFetch)).toHaveBeenCalledWith('/api/saved-queries/q1/share', expect.objectContaining({ method: 'DELETE' }));
+    });
   });
 });

@@ -21,6 +21,10 @@ export default function SavedQueries() {
   const { success, error } = useToast();
   const [queryToDelete, setQueryToDelete] = useState<any | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<any | null>(null);
+  // An id, not the item itself — the item is looked up live from `saved`
+  // each render, so the modal reflects the real current shareToken (e.g.
+  // after a rotate) instead of a stale snapshot from when it was opened.
+  const [shareQueryId, setShareQueryId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 300);
   const [folderFilter, setFolderFilter] = useState(ALL_FILTER);
@@ -127,6 +131,38 @@ export default function SavedQueries() {
     },
     onError: (err: any) => {
       error('Failed to move query', err.message);
+    }
+  });
+
+  const shareUrl = (token: string) => `${window.location.origin}/share/${token}`;
+  const queryToShare = shareQueryId ? saved.find((q: any) => q.id === shareQueryId) : null;
+
+  const toggleShareMutation = useMutation({
+    mutationFn: async ({ id, enable }: { id: string; enable: boolean }) => {
+      const res = await apiFetch(`/api/saved-queries/${id}/share`, { method: enable ? 'POST' : 'DELETE' });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return json as { shareToken?: string };
+    },
+    onSuccess: async (data, { enable }) => {
+      queryClient.invalidateQueries({ queryKey: ['savedQueries'] });
+      if (enable && data.shareToken) {
+        const url = shareUrl(data.shareToken);
+        try {
+          await navigator.clipboard.writeText(url);
+          success('Share link copied', url);
+        } catch {
+          // Clipboard access can be denied (permissions, non-secure
+          // context) — the link is still visible/selectable in the modal,
+          // so this isn't fatal, just less convenient.
+          success('Sharing enabled', url);
+        }
+      } else {
+        success('Sharing disabled', 'The previous link no longer works.');
+      }
+    },
+    onError: (err: any) => {
+      error('Failed to update sharing', err.message);
     }
   });
 
@@ -257,7 +293,12 @@ export default function SavedQueries() {
                 >
                   <Play size={14} />
                 </button>
-                <button className="p-1.5 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded tooltip-trigger transition-colors" data-tooltip="Share">
+                <button
+                  className="p-1.5 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded tooltip-trigger transition-colors"
+                  data-tooltip="Share"
+                  aria-label="Share"
+                  onClick={() => setShareQueryId(item.id)}
+                >
                   <Share2 size={14} />
                 </button>
                 <button
@@ -339,6 +380,58 @@ export default function SavedQueries() {
         confirmText="Create"
         cancelText="Cancel"
         confirmDisabled={!newFolderName.trim()}
+      />
+
+      <ConfirmModal
+        isOpen={!!shareQueryId}
+        onClose={() => setShareQueryId(null)}
+        onConfirm={() => {
+          if (queryToShare) {
+            toggleShareMutation.mutate({ id: queryToShare.id, enable: !queryToShare.shareToken });
+          }
+        }}
+        title="Share Query"
+        message={
+          queryToShare?.shareToken ? (
+            <div className="space-y-3">
+              <p>
+                Anyone with this link can view <strong>{queryToShare.name}</strong>'s name and SQL text — read-only.
+                They cannot run it, and they cannot see your database or any results.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={shareUrl(queryToShare.shareToken)}
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
+                  className="flex-1 min-w-0 bg-canvas-soft border border-border rounded-md px-3 py-2 text-xs text-foreground"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(shareUrl(queryToShare.shareToken));
+                      success('Link copied');
+                    } catch {
+                      error('Could not copy automatically', 'Select the link text and copy it manually.');
+                    }
+                  }}
+                >
+                  Copy
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p>
+              Enable sharing to get a public link to <strong>{queryToShare?.name}</strong>. Anyone with the link can
+              view its name and SQL text — read-only. They cannot run it, and they cannot see your database or any
+              results.
+            </p>
+          )
+        }
+        confirmText={queryToShare?.shareToken ? 'Disable Sharing' : 'Enable Sharing'}
+        cancelText={queryToShare?.shareToken ? 'Close' : 'Cancel'}
+        isDestructive={!!queryToShare?.shareToken}
       />
     </div>
   );
