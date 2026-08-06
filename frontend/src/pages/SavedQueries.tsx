@@ -6,17 +6,21 @@ import { useState } from 'react';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useToast } from '@/store/toastStore';
 import { apiFetch } from '@/lib/api';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 
 export default function SavedQueries() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { success, error } = useToast();
   const [queryToDelete, setQueryToDelete] = useState<any | null>(null);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['savedQueries'],
+    queryKey: ['savedQueries', debouncedSearch],
     queryFn: async () => {
-      const res = await apiFetch('/api/saved-queries');
+      const params = debouncedSearch ? `?search=${encodeURIComponent(debouncedSearch)}` : '';
+      const res = await apiFetch(`/api/saved-queries${params}`);
       const json = await res.json();
       return json.success ? json.savedQueries : [];
     }
@@ -62,6 +66,8 @@ export default function SavedQueries() {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder="Search saved queries..."
               className="w-full bg-canvas-soft border border-border rounded-md pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
             />
@@ -125,7 +131,9 @@ export default function SavedQueries() {
           </div>
         )) : (
           <div className="col-span-full text-center py-12 text-muted-foreground">
-            No saved queries yet. Run a query in the workspace and click "Save".
+            {debouncedSearch
+              ? `No saved queries match "${debouncedSearch}".`
+              : 'No saved queries yet. Run a query in the workspace and click "Save".'}
           </div>
         )}
       </div>

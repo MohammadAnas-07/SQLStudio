@@ -86,10 +86,20 @@ export async function queriesRoutes(fastify: FastifyInstance) {
   // Saved queries endpoints
   fastify.get('/api/saved-queries', async (request, reply) => {
     try {
+      const { search } = request.query as { search?: string };
+      const term = search?.trim();
+
       // Was an unscoped findMany() — returned every user's saved queries to
-      // any authenticated caller. Scope to the requester.
+      // any authenticated caller. Scope to the requester (search must stay
+      // scoped the same way — never let it become a way to search across
+      // other users' data).
       const saved = await prisma.savedQuery.findMany({
-        where: { userId: request.user.id },
+        where: {
+          userId: request.user.id,
+          // Matches both the query's name and its SQL text, since a user
+          // might remember either.
+          ...(term ? { OR: [{ name: { contains: term } }, { query: { contains: term } }] } : {})
+        },
         orderBy: { updatedAt: 'desc' }
       });
       return { success: true, savedQueries: saved };
@@ -126,8 +136,15 @@ export async function queriesRoutes(fastify: FastifyInstance) {
   // the other query-related routes for consistency, not part of the fix).
   fastify.get('/api/history', async (request, reply) => {
     try {
+      const { search } = request.query as { search?: string };
+      const term = search?.trim();
+
+      // QueryHistory has no separate "name" field, only the SQL text itself.
       const history = await prisma.queryHistory.findMany({
-        where: { userId: request.user.id },
+        where: {
+          userId: request.user.id,
+          ...(term ? { query: { contains: term } } : {})
+        },
         orderBy: { createdAt: 'desc' },
         take: 100
       });
