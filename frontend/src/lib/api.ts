@@ -1,4 +1,9 @@
-export const API_BASE = 'http://localhost:3000';
+const DEFAULT_API_BASE = 'http://localhost:3000';
+
+// Configurable via VITE_API_BASE_URL (see frontend/.env.example) so the
+// frontend can point at a backend that isn't on localhost:3000 — any real
+// deployment. Falls back to the local dev default when unset.
+export const API_BASE = import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE;
 
 const TOKEN_KEY = 'sqlstudio_token';
 
@@ -32,9 +37,12 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
 }
 
 export function getTerminalWsUrl(): string {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const host = window.location.hostname;
+  // Derived from API_BASE (rather than window.location) so this stays
+  // correct wherever the backend is actually hosted, not just when the
+  // frontend and backend share a host on port 3000.
+  const apiUrl = new URL(API_BASE);
+  const protocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
   const token = getToken();
   const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
-  return `${protocol}//${host}:3000/api/terminal${tokenParam}`;
+  return `${protocol}//${apiUrl.host}/api/terminal${tokenParam}`;
 }
