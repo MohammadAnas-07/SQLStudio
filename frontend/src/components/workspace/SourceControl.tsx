@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useGitStatus, useGitMutations } from '@/lib/hooks/useGit';
 import { usePlatform } from '@/lib/hooks/usePlatform';
 import { File as FileIcon, Plus, Minus, Loader2, Check, AlertTriangle } from 'lucide-react';

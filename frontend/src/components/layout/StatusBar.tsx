@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useGitStatus, useGitBranch, useGitMutations } from '@/lib/hooks/useGit';
 import { GitBranch as GitBranchIcon, Loader2, Plus } from 'lucide-react';
 
