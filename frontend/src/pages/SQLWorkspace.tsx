@@ -498,7 +498,7 @@ export default function SQLWorkspace() {
                       theme="vs-dark"
                       original={originalContent}
                       modified={query}
-                      onMount={(editor) => handleEditorDidMount(editor.getModifiedEditor(), window.monaco)}
+                      onMount={(editor, monaco) => handleEditorDidMount(editor.getModifiedEditor(), monaco)}
                       options={{
                         minimap: { enabled: false },
                         fontSize: 14,
