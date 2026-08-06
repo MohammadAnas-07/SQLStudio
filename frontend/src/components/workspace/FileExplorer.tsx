@@ -49,7 +49,10 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
       let color = '';
 
       if (f.index === '?' && f.working_dir === '?') {
-        letter = 'U'; color = 'text-green-400';
+        // Untracked gets its own hue (cyan), not a lighter shade of Added's
+        // green — the two were too close to tell apart without reading the
+        // letter badge.
+        letter = 'U'; color = 'text-cyan-400';
       } else if (f.index === 'A' || f.working_dir === 'A') {
         letter = 'A'; color = 'text-green-500';
       } else if (f.index === 'M' || f.working_dir === 'M') {
@@ -216,7 +219,7 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
         while(parentPath.includes('/')) {
           parentPath = parentPath.split('/').slice(0, -1).join('/');
           if (fileStatuses[parentPath]?.letter === 'U') {
-             gitStatusInfo = { letter: 'U', color: 'text-green-400' };
+             gitStatusInfo = { letter: 'U', color: 'text-cyan-400' };
              break;
           }
         }

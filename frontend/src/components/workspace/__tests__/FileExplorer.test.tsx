@@ -183,7 +183,7 @@ describe('FileExplorer - folder-level indicator consistency', () => {
     const folderName = await screen.findByText('new-folder');
     // The folder name itself is already colored, per existing behavior —
     // this test is about the dot, which is the part that was missing.
-    expect(folderName.className).toContain('text-green-400');
+    expect(folderName.className).toContain('text-cyan-400');
     const folderRow = folderName.closest('div');
     expect(folderRow?.querySelector('.bg-blue-500')).toBeTruthy();
   });
@@ -233,5 +233,42 @@ describe('FileExplorer - folder-level indicator consistency', () => {
     expect(collapsedHasDot).toBe(true);
     expect(perFileHasDot).toBe(true);
     expect(collapsedHasDot).toBe(perFileHasDot);
+  });
+});
+
+describe('FileExplorer - untracked vs added contrast', () => {
+  it('gives Untracked a different hue from Added, not just a lighter shade of the same green', async () => {
+    mockGitStatus({
+      data: {
+        not_added: ['untracked.sql'],
+        conflicted: [],
+        created: ['added.sql'],
+        deleted: [],
+        modified: [],
+        renamed: [],
+        files: [
+          { path: 'untracked.sql', index: '?', working_dir: '?' },
+          { path: 'added.sql', index: 'A', working_dir: ' ' },
+        ],
+        staged: ['added.sql'],
+        ahead: 0,
+        behind: 0,
+        current: 'main',
+        tracking: null,
+        isClean: () => false,
+      },
+    });
+    mockFilesResponse([
+      { name: 'untracked.sql', path: 'untracked.sql', isDir: false },
+      { name: 'added.sql', path: 'added.sql', isDir: false },
+    ]);
+    renderWithClient(<FileExplorer />);
+
+    const untracked = await screen.findByText('untracked.sql');
+    const added = await screen.findByText('added.sql');
+
+    expect(untracked.className).toContain('text-cyan-400');
+    expect(added.className).toContain('text-green-500');
+    expect(untracked.className).not.toContain('green');
   });
 });

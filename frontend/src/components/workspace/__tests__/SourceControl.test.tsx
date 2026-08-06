@@ -353,3 +353,37 @@ describe('SourceControl - commit shortcut hint reflects the server platform', ()
     expect(mockCommitMutate).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('SourceControl - untracked vs added contrast', () => {
+  it('gives Untracked a different hue from Added, not just a lighter shade of the same green', () => {
+    mockGitStatus({
+      data: {
+        not_added: ['untracked.sql'],
+        conflicted: [],
+        created: ['added.sql'],
+        deleted: [],
+        modified: [],
+        renamed: [],
+        files: [
+          { path: 'untracked.sql', index: '?', working_dir: '?' },
+          { path: 'added.sql', index: 'A', working_dir: ' ' },
+        ],
+        staged: ['added.sql'],
+        ahead: 0,
+        behind: 0,
+        current: 'main',
+        tracking: null,
+        isClean: () => false,
+      },
+      isLoading: false,
+    });
+    render(<SourceControl />);
+
+    const untracked = screen.getByText('untracked.sql');
+    const added = screen.getByText('added.sql');
+
+    expect(untracked.className).toContain('text-cyan-400');
+    expect(added.className).toContain('text-green-500');
+    expect(untracked.className).not.toContain('green');
+  });
+});

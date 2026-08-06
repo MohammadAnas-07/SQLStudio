@@ -78,7 +78,10 @@ export function SourceControl({ onFileSelect, onDeletedFileSelect }: SourceContr
     const code = section === 'staged' ? f.index : f.working_dir;
 
     if (code === '?') {
-      return { letter: 'U', color: 'text-green-400' };
+      // Untracked gets its own hue (cyan), not a lighter shade of Added's
+      // green — the two were too close to tell apart without reading the
+      // letter badge. Matches FileExplorer.tsx.
+      return { letter: 'U', color: 'text-cyan-400' };
     } else if (code === 'R') {
       return { letter: 'R', color: 'text-blue-400' };
     } else if (code === 'A') {
