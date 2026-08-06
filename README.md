@@ -9,8 +9,8 @@ A web-based SQL IDE. Write, run, save, and track SQL queries against a real data
 - **Monaco editor**: SQL syntax highlighting, autocomplete, dark mode.
 - **Real database execution**: runs raw SQL against a persistent PGlite (embedded, Postgres-compatible) backend.
 - **Schema explorer**: browse tables, columns, and primary keys from the live schema.
-- **Query history**: every execution is logged with status, execution time, and timestamp.
-- **Saved queries**: save snippets into collections, re-run them with one click.
+- **Query history**: every execution is logged with status, execution time, and timestamp, searchable by SQL text.
+- **Saved queries**: save snippets, organize them into folders, search by name or SQL text, re-run with one click, or share one as a public read-only link.
 - **Dashboard**: per-user connection counts, query metrics, and recent activity, plus a global active-user count.
 - **Dark mode by default**, styled with plain CSS tokens, loosely modeled on VS Code, DataGrip, and Supabase Studio.
 - **Run selected query**: highlight part of a script and run just that selection, without executing the whole file.
@@ -25,6 +25,10 @@ Each user's workspace maps to its own folder on disk (e.g. under Desktop), kept 
 Supported: `init`, `status`, `add`, `commit`, `log`, `branch`, `checkout`, `diff`, `remote`, `push`.
  
 This is built for local, single-user use. Login exists to gate API access, but there's no per-user sandboxing or container isolation — every account shares the same workspace folder and shell, so a second user isn't isolated from the first. If you deploy this for multiple people or expose it on a network, the terminal and git features would need a real security review first (containerized shells, per-user workspaces, auth on pushes, etc.). As a local dev tool, this setup is fine.
+
+### Sharing saved queries, in more detail
+
+A shared link shows only the query's name and SQL text, nothing else, never the results and never any connection details. The share token is a random 256-bit string rather than a sequential id, so it can't be guessed. Turning sharing off deletes the token immediately, and the public view endpoint is rate-limited per IP, since it's the only route in the app that doesn't require a login.
 
 ## Performance benchmarks
 
@@ -170,7 +174,9 @@ backend/
 │   │   ├── ai.routes.ts
 │   │   ├── auth.routes.ts
 │   │   ├── files.routes.ts
-│   │   └── git.routes.ts
+│   │   ├── folders.routes.ts
+│   │   ├── git.routes.ts
+│   │   └── queries.routes.ts
 │   ├── services/
 │   │   └── ai.service.ts
 │   ├── database.ts
@@ -193,6 +199,9 @@ frontend/
 │   │   └── api.ts
 │   ├── pages/
 │   │   ├── Login.tsx
+│   │   ├── QueryHistory.tsx
+│   │   ├── SavedQueries.tsx
+│   │   ├── SharedQuery.tsx
 │   │   └── SQLWorkspace.tsx
 │   ├── store/
 │   │   └── authStore.ts
@@ -224,6 +233,7 @@ flowchart TD
 | Backend | Fastify, Node.js | Async REST API |
 | Database | PGlite (embedded, Postgres-compatible), SQLite | PGlite runs query execution in-process; SQLite (via Prisma) stores app metadata |
 | Authentication | JWT (`@fastify/jwt`), bcrypt | Login/register endpoints, token required on every API route and the terminal websocket |
+| Rate limiting | `@fastify/rate-limit` | Applied only to the public share-view endpoint, not registered globally |
 | AI model | Google Gemini | SQL generation |
 | RAG engine | Custom context builder | Extracts schema for context-aware queries |
 | Environment | Dotenv, Vite config | Environment management |
@@ -244,6 +254,7 @@ flowchart TD
 - Fastify with Node.js
 - `better-sqlite3` and `PGlite`
 - Prisma ORM with SQLite (`metadata.db`) for metadata storage
+- `@fastify/rate-limit`, scoped to the public share-view endpoint
 - `tsx` for running TypeScript directly
 
 ## Getting started
@@ -334,7 +345,7 @@ The frontend isn't containerized — keep running it separately with `npm run de
 4. Write standard SQL (`CREATE TABLE`, `INSERT`, `SELECT`, etc.) in the Monaco editor.
 5. Hit Run Query to see the results.
 6. Hit Save to add a query to your library.
-7. Check Dashboard, Query History, and Saved Queries from the sidebar.
+7. Check Dashboard, Query History, and Saved Queries from the sidebar. From Saved Queries you can search, organize queries into folders, or share one as a public read-only link.
 
 ## License
 MIT License
