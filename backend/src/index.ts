@@ -26,7 +26,7 @@ const fastify = Fastify({
 
 fastify.register(cors, {
   origin: config.CORS_ORIGIN,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 });
 
 fastify.register(websocket);
@@ -210,6 +210,7 @@ fastify.delete('/api/database/:name', async (request, reply) => {
 
 import { gitRoutes } from './routes/git.routes';
 import { queriesRoutes } from './routes/queries.routes';
+import { foldersRoutes } from './routes/folders.routes';
 
 const start = async () => {
   try {
@@ -220,6 +221,7 @@ const start = async () => {
     await fileRoutes(fastify);
     await gitRoutes(fastify);
     await queriesRoutes(fastify);
+    await foldersRoutes(fastify);
     await fastify.listen({ port: 3000, host: '0.0.0.0' });
     console.log('Backend listening on port 3000');
   } catch (err) {

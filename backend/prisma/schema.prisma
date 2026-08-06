@@ -17,6 +17,7 @@ model User {
 
   connections DatabaseConnection[]
   queries     SavedQuery[]
+  folders     Folder[]
   history     QueryHistory[]
   aiConversations AiConversation[]
 }
@@ -47,10 +48,27 @@ model SavedQuery {
   query        String
   connectionId String?
   connection   DatabaseConnection? @relation(fields: [connectionId], references: [id])
+  // Nullable: a query with no folderId is "Uncategorized" — that's a UI
+  // label, not a row in the Folder table. Deleting a folder sets this back
+  // to null (see DELETE /api/folders/:id) rather than deleting the query.
+  folderId     String?
+  folder       Folder?            @relation(fields: [folderId], references: [id], onDelete: SetNull)
   userId       String
   user         User               @relation(fields: [userId], references: [id])
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
+}
+
+// Flat, one level — a folder has no parent/children. Nesting would need
+// recursive queries and cycle prevention for little benefit here.
+model Folder {
+  id        String       @id @default(uuid())
+  name      String
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  createdAt DateTime     @default(now())
+
+  queries   SavedQuery[]
 }
 
 model QueryHistory {

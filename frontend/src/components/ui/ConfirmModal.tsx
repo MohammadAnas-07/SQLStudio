@@ -14,6 +14,9 @@ interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   isDestructive?: boolean;
+  // Disables the confirm button (e.g. an empty required input) without the
+  // caller having to reimplement the modal shell just for that check.
+  confirmDisabled?: boolean;
 }
 
 export function ConfirmModal({
@@ -25,6 +28,7 @@ export function ConfirmModal({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   isDestructive = false,
+  confirmDisabled = false,
 }: ConfirmModalProps) {
   if (!isOpen) return null;
 
@@ -51,6 +55,7 @@ export function ConfirmModal({
           </Button>
           <Button
             className={isDestructive ? 'bg-red-500 hover:bg-red-600 text-white' : ''}
+            disabled={confirmDisabled}
             onClick={() => {
               onConfirm();
               onClose();

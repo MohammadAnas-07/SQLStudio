@@ -86,19 +86,23 @@ export async function queriesRoutes(fastify: FastifyInstance) {
   // Saved queries endpoints
   fastify.get('/api/saved-queries', async (request, reply) => {
     try {
-      const { search } = request.query as { search?: string };
+      const { search, folderId } = request.query as { search?: string; folderId?: string };
       const term = search?.trim();
 
       // Was an unscoped findMany() — returned every user's saved queries to
-      // any authenticated caller. Scope to the requester (search must stay
-      // scoped the same way — never let it become a way to search across
-      // other users' data).
+      // any authenticated caller. Scope to the requester (search/folder
+      // filters must stay scoped the same way — never let either become a
+      // way to read across other users' data).
       const saved = await prisma.savedQuery.findMany({
         where: {
           userId: request.user.id,
           // Matches both the query's name and its SQL text, since a user
           // might remember either.
-          ...(term ? { OR: [{ name: { contains: term } }, { query: { contains: term } }] } : {})
+          ...(term ? { OR: [{ name: { contains: term } }, { query: { contains: term } }] } : {}),
+          // "uncategorized" is a UI-only label (no Folder row for it) — a
+          // literal folderId=uncategorized filters to queries with no
+          // folder at all. Any other folderId filters to that folder.
+          ...(folderId === 'uncategorized' ? { folderId: null } : folderId ? { folderId } : {})
         },
         orderBy: { updatedAt: 'desc' }
       });
@@ -127,6 +131,46 @@ export async function queriesRoutes(fastify: FastifyInstance) {
         }
       });
       return { success: true, savedQuery: saved };
+    } catch (error: any) {
+      return reply.status(500).send({ success: false, error: error.message });
+    }
+  });
+
+  // Moves a saved query into a folder, or back to "Uncategorized" by
+  // passing folderId: null.
+  fastify.patch('/api/saved-queries/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { folderId } = request.body as { folderId: string | null };
+    const userId = request.user.id;
+
+    if (folderId !== null && typeof folderId !== 'string') {
+      return reply.status(400).send({ success: false, error: 'folderId must be a string or null' });
+    }
+
+    try {
+      if (folderId !== null) {
+        // The target folder must belong to the requester too — otherwise
+        // this would let a user file their own query under another user's
+        // folder id (harmless to the other user's data, but still an
+        // unintended cross-user reference, so reject it outright).
+        const folder = await prisma.folder.findFirst({ where: { id: folderId, userId } });
+        if (!folder) {
+          return reply.status(404).send({ success: false, error: 'Folder not found' });
+        }
+      }
+
+      // Same IDOR-safe pattern as the delete endpoint below: updateMany
+      // with a compound where only touches the row if it's the
+      // requester's own.
+      const result = await prisma.savedQuery.updateMany({
+        where: { id, userId },
+        data: { folderId }
+      });
+      if (result.count === 0) {
+        return reply.status(404).send({ success: false, error: 'Saved query not found' });
+      }
+      const savedQuery = await prisma.savedQuery.findUnique({ where: { id } });
+      return { success: true, savedQuery };
     } catch (error: any) {
       return reply.status(500).send({ success: false, error: error.message });
     }
