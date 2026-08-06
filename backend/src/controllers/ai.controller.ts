@@ -3,14 +3,22 @@ import { aiService } from '../services/ai.service';
 import { prisma } from '../database';
 
 export class AiController {
-  
-  private async getContextIds() {
-    const user = await prisma.user.findFirst();
-    const connection = await prisma.databaseConnection.findFirst();
-    if (!user || !connection) {
-      throw new Error('Default user or connection not found');
+
+  // request.user.id is already the authenticated caller (verified by the
+  // global JWT preHandler before this ever runs) — no need to look the user
+  // up again. The only thing that actually needs a DB query is finding
+  // *this* user's own DatabaseConnection, since connectionId isn't part of
+  // the JWT payload. Every user is guaranteed to have exactly one, created
+  // alongside them at registration (see auth.routes.ts), so this should
+  // never come back empty for a real request — the error is a safety net,
+  // not an expected path.
+  private async getContextIds(request: FastifyRequest) {
+    const userId = request.user.id;
+    const connection = await prisma.databaseConnection.findFirst({ where: { userId } });
+    if (!connection) {
+      throw new Error('No database connection found for this user');
     }
-    return { userId: user.id, connectionId: connection.id };
+    return { userId, connectionId: connection.id };
   }
 
   async chat(request: FastifyRequest, reply: FastifyReply) {
@@ -18,7 +26,7 @@ export class AiController {
     if (!prompt) return reply.status(400).send({ success: false, error: 'Prompt is required' });
 
     try {
-      const { userId, connectionId } = await this.getContextIds();
+      const { userId, connectionId } = await this.getContextIds(request);
       const response = await aiService.chat(prompt, connectionId, userId);
       return { success: true, response };
     } catch (error: any) {
@@ -64,7 +72,7 @@ export class AiController {
 
   async getHistory(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const { userId, connectionId } = await this.getContextIds();
+      const { userId, connectionId } = await this.getContextIds(request);
       const history = await aiService.getHistory(connectionId, userId);
       return { success: true, history };
     } catch (error: any) {
@@ -74,7 +82,7 @@ export class AiController {
 
   async clearHistory(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const { userId, connectionId } = await this.getContextIds();
+      const { userId, connectionId } = await this.getContextIds(request);
       await aiService.clearHistory(connectionId, userId);
       return { success: true };
     } catch (error: any) {

@@ -7,7 +7,7 @@
     "dev": "npx tsx watch --ignore \"**/*.db\" --ignore \"**/*.db-journal\" --ignore \"../pgdata/**\" src/index.ts",
     "build": "npx tsc",
     "start": "node dist/index.js",
-    "test": "node --import tsx --test \"src/**/*.test.ts\""
+    "test": "node --experimental-test-module-mocks --import tsx --test \"src/**/*.test.ts\""
   },
   "keywords": [],
   "author": "",
