@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGitStatus, useGitMutations } from '@/lib/hooks/useGit';
+import { usePlatform } from '@/lib/hooks/usePlatform';
 import { File as FileIcon, Plus, Minus, Loader2, Check, AlertTriangle } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
@@ -14,8 +15,13 @@ interface SourceControlProps {
 export function SourceControl({ onFileSelect, onDeletedFileSelect }: SourceControlProps) {
   const { data: gitStatus, isLoading } = useGitStatus();
   const { stage, unstage, commit } = useGitMutations();
+  const { data: platform } = usePlatform();
   const [commitMessage, setCommitMessage] = useState('');
   const [showConflictWarning, setShowConflictWarning] = useState(false);
+  // Default to Cmd while the platform check is still loading — the
+  // keybinding itself already accepts both metaKey and ctrlKey below, so
+  // this only affects the hint text for the brief moment before it resolves.
+  const commitShortcutLabel = platform?.isWindows ? 'Ctrl+Enter' : 'Cmd+Enter';
 
   if (isLoading) {
     return <div className="flex justify-center p-4"><Loader2 className="animate-spin text-muted-foreground" size={20} /></div>;
@@ -202,7 +208,7 @@ export function SourceControl({ onFileSelect, onDeletedFileSelect }: SourceContr
         <textarea
           value={commitMessage}
           onChange={(e) => setCommitMessage(e.target.value)}
-          placeholder="Message (Cmd+Enter to commit)"
+          placeholder={`Message (${commitShortcutLabel} to commit)`}
           className="w-full bg-canvas border border-border rounded p-2 text-sm text-foreground focus:outline-none focus:border-primary resize-none h-20"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {

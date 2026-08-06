@@ -15,6 +15,7 @@ import {
   stagedDeletedFileGitStatus,
 } from '@/test/fixtures/gitStatus';
 import { useGitStatus } from '@/lib/hooks/useGit';
+import { usePlatform } from '@/lib/hooks/usePlatform';
 
 const mockMutate = vi.fn();
 const mockCommitMutate = vi.fn();
@@ -28,9 +29,24 @@ vi.mock('@/lib/hooks/useGit', () => ({
   }),
 }));
 
+vi.mock('@/lib/hooks/usePlatform', () => ({
+  usePlatform: vi.fn(),
+}));
+
 function mockGitStatus(status: unknown) {
   vi.mocked(useGitStatus).mockReturnValue(status as unknown as ReturnType<typeof useGitStatus>);
 }
+
+function mockPlatform(platform: unknown) {
+  vi.mocked(usePlatform).mockReturnValue(platform as unknown as ReturnType<typeof usePlatform>);
+}
+
+// Default every test to a resolved, non-Windows platform so existing tests
+// that don't care about the shortcut hint aren't left with usePlatform()
+// returning undefined (which would throw destructuring `.data` below).
+beforeEach(() => {
+  mockPlatform({ data: { isWindows: false } });
+});
 
 describe('SourceControl - renamed files', () => {
   beforeEach(() => {
@@ -293,5 +309,47 @@ describe('SourceControl - clicking a deleted file', () => {
 
     expect(() => fireEvent.click(screen.getByText('gone.sql'))).not.toThrow();
     expect(onFileSelect).not.toHaveBeenCalled();
+  });
+});
+
+describe('SourceControl - commit shortcut hint reflects the server platform', () => {
+  beforeEach(() => {
+    mockMutate.mockClear();
+    mockCommitMutate.mockClear();
+    // Something staged, so the Ctrl/Cmd+Enter keybinding test below is
+    // actually able to trigger a commit.
+    mockGitStatus({ data: stagedOnlyFileGitStatus, isLoading: false });
+  });
+
+  it('shows Cmd+Enter when the server platform is not Windows', () => {
+    mockPlatform({ data: { isWindows: false } });
+    render(<SourceControl />);
+
+    expect(screen.getByPlaceholderText('Message (Cmd+Enter to commit)')).toBeInTheDocument();
+  });
+
+  it('shows Ctrl+Enter when the server platform is Windows', () => {
+    mockPlatform({ data: { isWindows: true } });
+    render(<SourceControl />);
+
+    expect(screen.getByPlaceholderText('Message (Ctrl+Enter to commit)')).toBeInTheDocument();
+  });
+
+  it('falls back to Cmd+Enter while the platform check is still loading, without crashing', () => {
+    mockPlatform({ data: undefined, isLoading: true });
+    render(<SourceControl />);
+
+    expect(screen.getByPlaceholderText('Message (Cmd+Enter to commit)')).toBeInTheDocument();
+  });
+
+  it('accepts both Ctrl+Enter and Cmd+Enter to commit regardless of the displayed hint', () => {
+    mockPlatform({ data: { isWindows: true } });
+    render(<SourceControl />);
+
+    const textarea = screen.getByPlaceholderText('Message (Ctrl+Enter to commit)');
+    fireEvent.change(textarea, { target: { value: 'msg' } });
+    fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true });
+
+    expect(mockCommitMutate).toHaveBeenCalledTimes(1);
   });
 });

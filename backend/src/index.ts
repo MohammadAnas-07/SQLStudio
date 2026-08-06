@@ -14,6 +14,11 @@ import path from 'path';
 
 const WORKSPACE_ROOT = config.WORKSPACE_ROOT_PATH;
 
+// Single source of truth for the server's OS — reused for both picking the
+// terminal shell below and telling the frontend which keyboard shortcut
+// modifier to display (Ctrl vs Cmd), so the two never disagree.
+export const isWindows = os.platform() === 'win32';
+
 
 const fastify = Fastify({
   logger: true,
@@ -34,6 +39,14 @@ configureAuth(fastify);
 
 fastify.get('/ping', async (request, reply) => {
   return { status: 'ok', service: 'sqlstudio-backend' };
+});
+
+// Lets the frontend show the right keyboard-shortcut modifier (Ctrl vs Cmd)
+// without guessing at the client's OS separately — this is the same
+// `isWindows` check the terminal handler below uses to pick a shell, so the
+// two can never disagree.
+fastify.get('/api/system/platform', async () => {
+  return { success: true, isWindows };
 });
 
 fastify.register(async (app) => {
@@ -62,7 +75,7 @@ fastify.register(async (app) => {
       }
     },
   }, (connection, req) => {
-    const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
+    const shell = isWindows ? 'powershell.exe' : 'bash';
     const ptyProcess = pty.spawn(shell, [], {
       name: 'xterm-color',
       cols: 80,
