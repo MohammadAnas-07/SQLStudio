@@ -114,6 +114,34 @@ export const conflictedAndModifiedFileGitStatus: GitStatusResult = {
   isClean: () => false,
 };
 
+/**
+ * A conflict alongside an unrelated, genuinely staged file. Models the
+ * scenario the commit-confirmation dialog guards against: the user has
+ * something ready to commit (`other.ts`, staged normally) while a separate
+ * file (`conflict.ts`) is still unresolved. Note git itself never lets a
+ * truly unmerged path sit in `staged` — simple-git's "UU" parser only
+ * pushes to `conflicted` — so this is the closest real shape to "a
+ * conflicted file staged alongside other changes".
+ */
+export const conflictWithOtherStagedFileGitStatus: GitStatusResult = {
+  not_added: [],
+  conflicted: ['conflict.ts'],
+  created: ['other.ts'],
+  deleted: [],
+  modified: [],
+  renamed: [],
+  files: [
+    { path: 'conflict.ts', index: 'U', working_dir: 'U' },
+    { path: 'other.ts', index: 'A', working_dir: ' ' },
+  ],
+  staged: ['other.ts'],
+  ahead: 0,
+  behind: 0,
+  current: 'main',
+  tracking: null,
+  isClean: () => false,
+};
+
 /** A conflict alongside an unrelated staged rename, to check both sections render. */
 export const conflictAndRenameGitStatus: GitStatusResult = {
   not_added: [],
