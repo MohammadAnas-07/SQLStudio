@@ -23,7 +23,11 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
       const res = await apiFetch('/api/files');
       return res.json() as Promise<{ success: boolean; files: FileNode[] }>;
     },
-    refetchInterval: 2000 // Poll every 2 seconds to catch changes from terminal
+    // Tightened from 2000ms to line up with useGitStatus's 1000ms (see the
+    // comment there for the measured cost/trade-off) — walking the file
+    // tree for a workspace of comparable size measured at ~18ms/call,
+    // cheaper than git status, so it isn't the limiting factor here.
+    refetchInterval: 1000
   });
 
   const { data: gitStatus } = useGitStatus();

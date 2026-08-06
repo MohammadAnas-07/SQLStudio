@@ -27,7 +27,18 @@ export function useGitStatus() {
       if (!data.success) throw new Error(data.error);
       return data.status as GitStatusResult;
     },
-    refetchInterval: 3000,
+    // Tightened from 3000ms: measured `git.status()` (via simple-git, the
+    // exact backend codepath) at ~94ms/call averaged over 20 calls against
+    // this repo's ~85 tracked files on Windows — about a 9% duty cycle at a
+    // 1s interval, so there's comfortable headroom for typical workspace
+    // sizes. This doesn't scale down further without risk, though: git
+    // status cost grows with tracked-file count (it stats every one), and
+    // process-spawn overhead is materially higher on Windows than
+    // Linux/macOS, which is most of that ~94ms. A real filesystem watcher
+    // (chokidar or similar) would remove polling cost entirely and give
+    // near-instant updates instead of "fast poll" — flagged as a possible
+    // follow-up, not done here since it's a bigger architectural change.
+    refetchInterval: 1000,
   });
 }
 
