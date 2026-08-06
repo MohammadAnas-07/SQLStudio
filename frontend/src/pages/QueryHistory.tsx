@@ -1,14 +1,20 @@
 import { Search, Clock, Play, FileText, Calendar, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 
 export default function QueryHistory() {
   const navigate = useNavigate();
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
+
   const { data, isLoading } = useQuery({
-    queryKey: ['queryHistory'],
+    queryKey: ['queryHistory', debouncedSearch],
     queryFn: async () => {
-      const res = await apiFetch('/api/history');
+      const params = debouncedSearch ? `?search=${encodeURIComponent(debouncedSearch)}` : '';
+      const res = await apiFetch(`/api/history${params}`);
       const json = await res.json();
       return json.success ? json.history : [];
     }
@@ -35,6 +41,8 @@ export default function QueryHistory() {
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Search queries..."
             className="w-full bg-canvas-soft border border-border rounded-md pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
           />
@@ -84,7 +92,9 @@ export default function QueryHistory() {
               )}
             </div>
           )) : (
-            <div className="text-center py-12 text-muted-foreground">No query history found</div>
+            <div className="text-center py-12 text-muted-foreground">
+              {debouncedSearch ? `No query history matches "${debouncedSearch}".` : 'No query history found'}
+            </div>
           )}
         </div>
       </div>
