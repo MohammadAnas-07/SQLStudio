@@ -300,7 +300,18 @@ flowchart TD
    ```bash
    cd frontend
    npm install
-   
+   ```
+
+   Configure environment variables (see `frontend/.env.example`):
+
+   ```env
+   # Optional. Defaults to http://localhost:3000. Set this to your deployed
+   # backend's URL whenever the frontend and backend aren't both running on
+   # localhost:3000 — any real deployment.
+   VITE_API_BASE_URL=
+   ```
+
+   ```bash
    # Start the Vite development server
    npm run dev
    ```
