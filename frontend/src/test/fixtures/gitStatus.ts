@@ -263,3 +263,52 @@ export const stagedDeletedFileGitStatus: GitStatusResult = {
   tracking: null,
   isClean: () => false,
 };
+
+/**
+ * A whole new directory that git collapsed into a single "?? dir/" line
+ * (untracked-files=normal mode) rather than listing its files individually.
+ * The path in `files` carries a trailing slash — the signal that this
+ * entry IS a folder, not a file.
+ */
+export const singleLineNewFolderGitStatus: GitStatusResult = {
+  not_added: ['new-folder/'],
+  conflicted: [],
+  created: [],
+  deleted: [],
+  modified: [],
+  renamed: [],
+  files: [
+    { path: 'new-folder/', index: '?', working_dir: '?' },
+  ],
+  staged: [],
+  ahead: 0,
+  behind: 0,
+  current: 'main',
+  tracking: null,
+  isClean: () => false,
+};
+
+/**
+ * A folder git reported via N individual per-file lines instead of one
+ * collapsed line — the structurally different but visually-equivalent
+ * case: `existing-folder` itself never appears as its own entry in
+ * `files`, only its two modified children do.
+ */
+export const folderWithModifiedChildrenGitStatus: GitStatusResult = {
+  not_added: [],
+  conflicted: [],
+  created: [],
+  deleted: [],
+  modified: ['existing-folder/a.sql', 'existing-folder/b.sql'],
+  renamed: [],
+  files: [
+    { path: 'existing-folder/a.sql', index: ' ', working_dir: 'M' },
+    { path: 'existing-folder/b.sql', index: ' ', working_dir: 'M' },
+  ],
+  staged: [],
+  ahead: 0,
+  behind: 0,
+  current: 'main',
+  tracking: null,
+  isClean: () => false,
+};

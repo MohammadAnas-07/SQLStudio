@@ -8,6 +8,8 @@ import {
   nestedRenamedFileGitStatus,
   conflictedFileGitStatus,
   conflictedAndModifiedFileGitStatus,
+  singleLineNewFolderGitStatus,
+  folderWithModifiedChildrenGitStatus,
 } from '@/test/fixtures/gitStatus';
 import { useGitStatus } from '@/lib/hooks/useGit';
 import { apiFetch } from '@/lib/api';
@@ -167,5 +169,69 @@ describe('FileExplorer - merge conflicts', () => {
     const srcRow = screen.getByText('src').closest('div');
     expect(srcRow?.querySelector('.bg-red-600')).toBeTruthy();
     expect(srcRow?.querySelector('.bg-blue-500')).toBeFalsy();
+  });
+});
+
+describe('FileExplorer - folder-level indicator consistency', () => {
+  it('shows the "has changes" dot for a whole new folder git collapsed into one line', async () => {
+    mockGitStatus({ data: singleLineNewFolderGitStatus });
+    mockFilesResponse([
+      { name: 'new-folder', path: 'new-folder', isDir: true, children: [] },
+    ]);
+    renderWithClient(<FileExplorer />);
+
+    const folderName = await screen.findByText('new-folder');
+    // The folder name itself is already colored, per existing behavior —
+    // this test is about the dot, which is the part that was missing.
+    expect(folderName.className).toContain('text-green-400');
+    const folderRow = folderName.closest('div');
+    expect(folderRow?.querySelector('.bg-blue-500')).toBeTruthy();
+  });
+
+  it('shows the same dot for a folder git reported via individually-modified children', async () => {
+    mockGitStatus({ data: folderWithModifiedChildrenGitStatus });
+    mockFilesResponse([
+      {
+        name: 'existing-folder', path: 'existing-folder', isDir: true, children: [
+          { name: 'a.sql', path: 'existing-folder/a.sql', isDir: false },
+          { name: 'b.sql', path: 'existing-folder/b.sql', isDir: false },
+        ],
+      },
+    ]);
+    renderWithClient(<FileExplorer />);
+
+    const folderName = await screen.findByText('existing-folder');
+    const folderRow = folderName.closest('div');
+    expect(folderRow?.querySelector('.bg-blue-500')).toBeTruthy();
+  });
+
+  it('gives both structurally different cases the same visible indicator, not just one of them', async () => {
+    // Single-line collapsed folder
+    mockGitStatus({ data: singleLineNewFolderGitStatus });
+    mockFilesResponse([
+      { name: 'new-folder', path: 'new-folder', isDir: true, children: [] },
+    ]);
+    const collapsedRender = renderWithClient(<FileExplorer />);
+    const collapsedFolderRow = (await collapsedRender.findByText('new-folder')).closest('div');
+    const collapsedHasDot = !!collapsedFolderRow?.querySelector('.bg-blue-500');
+    collapsedRender.unmount();
+
+    // Folder with individually-listed modified children
+    mockGitStatus({ data: folderWithModifiedChildrenGitStatus });
+    mockFilesResponse([
+      {
+        name: 'existing-folder', path: 'existing-folder', isDir: true, children: [
+          { name: 'a.sql', path: 'existing-folder/a.sql', isDir: false },
+          { name: 'b.sql', path: 'existing-folder/b.sql', isDir: false },
+        ],
+      },
+    ]);
+    const perFileRender = renderWithClient(<FileExplorer />);
+    const perFileFolderRow = (await perFileRender.findByText('existing-folder')).closest('div');
+    const perFileHasDot = !!perFileFolderRow?.querySelector('.bg-blue-500');
+
+    expect(collapsedHasDot).toBe(true);
+    expect(perFileHasDot).toBe(true);
+    expect(collapsedHasDot).toBe(perFileHasDot);
   });
 });
