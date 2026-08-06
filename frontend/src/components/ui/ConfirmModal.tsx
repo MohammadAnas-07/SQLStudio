@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -6,7 +7,10 @@ interface ConfirmModalProps {
   onClose: () => void;
   onConfirm: () => void;
   title: string;
-  message: string;
+  // A plain string still works (existing callers), but this also accepts
+  // richer content — e.g. the AI-execute confirmation renders the actual
+  // SQL plus a conditional warning banner here, not just prose.
+  message: ReactNode;
   confirmText?: string;
   cancelText?: string;
   isDestructive?: boolean;
@@ -37,7 +41,9 @@ export function ConfirmModal({
           </button>
         </div>
         <div className="p-4">
-          <p className="text-sm text-muted-foreground">{message}</p>
+          {/* A plain div, not <p> — block-level content (e.g. a <pre> SQL
+              preview or a warning banner) isn't valid inside a <p>. */}
+          <div className="text-sm text-muted-foreground">{message}</div>
         </div>
         <div className="flex items-center justify-end gap-3 p-4 border-t border-border bg-canvas-soft">
           <Button variant="outline" onClick={onClose}>
