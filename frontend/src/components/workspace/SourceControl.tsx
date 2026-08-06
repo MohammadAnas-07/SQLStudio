@@ -115,6 +115,21 @@ export function SourceControl({ onFileSelect, onDeletedFileSelect }: SourceContr
     ? `"${conflictedFiles[0]}" still has unresolved merge conflicts. Commit anyway?`
     : `${conflictedFiles.length} files still have unresolved merge conflicts: ${conflictedFiles.join(', ')}. Commit anyway?`;
 
+  // stage/unstage are single shared mutations reused by every row's button
+  // AND the bulk "Stage/Unstage All" buttons — `isPending` alone is global
+  // to the whole mutation, not the specific file clicked. `variables` holds
+  // whatever was last passed to `mutate()` (a single path, or an array for
+  // the "All" buttons), so cross-referencing it against `path` gives a true
+  // per-row pending state without needing separate local state per file.
+  const isMutationPendingFor = (
+    mutation: { isPending: boolean; variables: string | string[] | undefined },
+    path: string
+  ) => {
+    if (!mutation.isPending) return false;
+    const vars = mutation.variables;
+    return Array.isArray(vars) ? vars.includes(path) : vars === path;
+  };
+
   const renderFile = (filePath: string, isStaged: boolean) => {
     // Conflict status is checked first and wins over everything else — a
     // conflicted file might also technically show as modified, but the
@@ -132,6 +147,8 @@ export function SourceControl({ onFileSelect, onDeletedFileSelect }: SourceContr
     const fileName = filePath.split('/').pop() || filePath;
     const folderPath = filePath.split('/').slice(0, -1).join('/');
     const oldName = renameInfo ? (renameInfo.from.split('/').pop() || renameInfo.from) : null;
+    const isStagePending = isMutationPendingFor(stage, filePath);
+    const isUnstagePending = isMutationPendingFor(unstage, filePath);
 
     return (
       <div
@@ -158,22 +175,24 @@ export function SourceControl({ onFileSelect, onDeletedFileSelect }: SourceContr
           </span>
           {folderPath && <span className="text-[10px] text-muted-foreground truncate">{folderPath}</span>}
         </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className={`flex items-center gap-1 transition-opacity ${(isStagePending || isUnstagePending) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
           {isStaged ? (
             <button
-              className="p-1 hover:bg-canvas-night rounded text-muted-foreground hover:text-foreground"
+              className="p-1 hover:bg-canvas-night rounded text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:pointer-events-none"
               onClick={(e) => { e.stopPropagation(); unstage.mutate(filePath); }}
+              disabled={isUnstagePending}
               title="Unstage Changes"
             >
-              <Minus size={14} />
+              {isUnstagePending ? <Loader2 size={14} className="animate-spin" /> : <Minus size={14} />}
             </button>
           ) : (
             <button
-              className="p-1 hover:bg-canvas-night rounded text-muted-foreground hover:text-foreground"
+              className="p-1 hover:bg-canvas-night rounded text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:pointer-events-none"
               onClick={(e) => { e.stopPropagation(); stage.mutate(filePath); }}
+              disabled={isStagePending}
               title="Stage Changes"
             >
-              <Plus size={14} />
+              {isStagePending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
             </button>
           )}
         </div>
