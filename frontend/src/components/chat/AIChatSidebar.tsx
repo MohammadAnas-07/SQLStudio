@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Send, Trash2, X, Loader2 } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import { apiFetch } from '@/lib/api';
+import { useToast } from '@/store/toastStore';
 
 interface Message {
   id: string;
@@ -20,6 +21,7 @@ export function AIChatSidebar({ onClose, onExecuteQuery, onInsertIntoEditor }: A
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { error: toastError } = useToast();
 
   useEffect(() => {
     fetchHistory();
@@ -70,10 +72,16 @@ export function AIChatSidebar({ onClose, onExecuteQuery, onInsertIntoEditor }: A
 
   const handleClear = async () => {
     try {
-      await apiFetch('/api/ai/history', { method: 'DELETE' });
-      setMessages([]);
-    } catch (e) {
+      const res = await apiFetch('/api/ai/history', { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setMessages([]);
+      } else {
+        toastError('Failed to clear history', data.error);
+      }
+    } catch (e: any) {
       console.error('Failed to clear history', e);
+      toastError('Failed to clear history', e?.message);
     }
   };
 
