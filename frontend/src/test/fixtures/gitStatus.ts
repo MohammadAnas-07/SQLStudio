@@ -161,3 +161,67 @@ export const conflictAndRenameGitStatus: GitStatusResult = {
   tracking: null,
   isClean: () => false,
 };
+
+/** A file staged as Added, nothing further pending — raw code "A ". */
+export const stagedOnlyFileGitStatus: GitStatusResult = {
+  not_added: [],
+  conflicted: [],
+  created: ['staged.ts'],
+  deleted: [],
+  modified: [],
+  renamed: [],
+  files: [
+    { path: 'staged.ts', index: 'A', working_dir: ' ' },
+  ],
+  staged: ['staged.ts'],
+  ahead: 0,
+  behind: 0,
+  current: 'main',
+  tracking: null,
+  isClean: () => false,
+};
+
+/** A file modified in the working tree only, never staged — raw code " M". */
+export const unstagedOnlyFileGitStatus: GitStatusResult = {
+  not_added: [],
+  conflicted: [],
+  created: [],
+  deleted: [],
+  modified: ['unstaged.ts'],
+  renamed: [],
+  files: [
+    { path: 'unstaged.ts', index: ' ', working_dir: 'M' },
+  ],
+  staged: [],
+  ahead: 0,
+  behind: 0,
+  current: 'main',
+  tracking: null,
+  isClean: () => false,
+};
+
+/**
+ * A file staged as Added, then further edited on disk before being
+ * committed — raw code "AM". Per simple-git's parser this single line
+ * pushes the path into `created`, `staged`, AND `modified` simultaneously,
+ * so the same path legitimately belongs in both the Staged Changes and
+ * Changes sections at once, each reflecting a different half of the code:
+ * index ('A') for Staged, working_dir ('M') for unstaged.
+ */
+export const stagedThenModifiedFileGitStatus: GitStatusResult = {
+  not_added: [],
+  conflicted: [],
+  created: ['combo.ts'],
+  deleted: [],
+  modified: ['combo.ts'],
+  renamed: [],
+  files: [
+    { path: 'combo.ts', index: 'A', working_dir: 'M' },
+  ],
+  staged: ['combo.ts'],
+  ahead: 0,
+  behind: 0,
+  current: 'main',
+  tracking: null,
+  isClean: () => false,
+};

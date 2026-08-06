@@ -42,27 +42,39 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
     return true;
   });
 
-  const getFileIconAndColor = (f: { index: string, working_dir: string }) => {
-    let letter = '';
-    let color = '';
+  // A file staged as Added and then further edited on disk has index='A',
+  // working_dir='M' — two different pending states at once. Which one is
+  // "the" status depends entirely on which section is being rendered: the
+  // Staged Changes section must reflect the index (what a commit right now
+  // would record), the unstaged Changes section must reflect working_dir
+  // (what's still un-staged), matching VS Code exactly. So this takes an
+  // explicit section rather than OR-ing both codes together into one badge.
+  const getFileIconAndColor = (f: { index: string, working_dir: string }, section: 'staged' | 'unstaged') => {
     // Fallback safety net: recognize git's raw unmerged codes (UU/AU/UA/DD/DU/UD)
     // even if a path was somehow missing from the typed `conflicted` array.
+    // A conflict is a whole-file property, not section-specific, so this
+    // checks both codes together regardless of which section is rendering.
     // The typed array (checked via `conflictedPaths` in renderFile) is the
     // primary source of truth and always takes priority over this.
     if (f.index === 'U' || f.working_dir === 'U' || (f.index === 'A' && f.working_dir === 'A') || (f.index === 'D' && f.working_dir === 'D')) {
-      letter = 'C'; color = 'text-orange-500';
-    } else if (f.index === '?' && f.working_dir === '?') {
-      letter = 'U'; color = 'text-green-400';
-    } else if (f.index === 'R' || f.working_dir === 'R') {
-      letter = 'R'; color = 'text-blue-400';
-    } else if (f.index === 'A' || f.working_dir === 'A') {
-      letter = 'A'; color = 'text-green-500';
-    } else if (f.index === 'M' || f.working_dir === 'M') {
-      letter = 'M'; color = 'text-yellow-500';
-    } else if (f.index === 'D' || f.working_dir === 'D') {
-      letter = 'D'; color = 'text-red-500';
+      return { letter: 'C', color: 'text-orange-500' };
     }
-    return { letter, color };
+
+    // From here on, only the code for the section being rendered matters.
+    const code = section === 'staged' ? f.index : f.working_dir;
+
+    if (code === '?') {
+      return { letter: 'U', color: 'text-green-400' };
+    } else if (code === 'R') {
+      return { letter: 'R', color: 'text-blue-400' };
+    } else if (code === 'A') {
+      return { letter: 'A', color: 'text-green-500' };
+    } else if (code === 'M') {
+      return { letter: 'M', color: 'text-yellow-500' };
+    } else if (code === 'D') {
+      return { letter: 'D', color: 'text-red-500' };
+    }
+    return { letter: '', color: '' };
   };
 
   const performCommit = () => {
@@ -99,7 +111,7 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
       ? { letter: 'C', color: 'text-orange-500' }
       : renameInfo
         ? { letter: 'R', color: 'text-blue-400' }
-        : (fileData ? getFileIconAndColor(fileData) : { letter: '', color: '' });
+        : (fileData ? getFileIconAndColor(fileData, isStaged ? 'staged' : 'unstaged') : { letter: '', color: '' });
     const fileName = filePath.split('/').pop() || filePath;
     const folderPath = filePath.split('/').slice(0, -1).join('/');
     const oldName = renameInfo ? (renameInfo.from.split('/').pop() || renameInfo.from) : null;
