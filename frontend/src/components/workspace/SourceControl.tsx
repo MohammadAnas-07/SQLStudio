@@ -11,11 +11,19 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
     return <div className="flex justify-center p-4"><Loader2 className="animate-spin text-muted-foreground" size={20} /></div>;
   }
 
-  const stagedFiles = gitStatus?.staged || [];
+  // simple-git doesn't add renamed entries to `staged`, even though a rename
+  // reported by `git status` is staged in the index. Use the typed `renamed`
+  // field (clean from/to paths) rather than re-deriving them from raw codes.
+  const renamedFiles = gitStatus?.renamed || [];
+  const renamedToPaths = new Set(renamedFiles.map(r => r.to));
+
+  const stagedFiles = [...(gitStatus?.staged || []), ...renamedFiles.map(r => r.to)];
   const hasStaged = stagedFiles.length > 0;
-  
-  // Untracked, modified, deleted (unstaged)
+
+  // Untracked, modified, deleted (unstaged). Renamed files are rendered via
+  // stagedFiles/renamedFiles above, so exclude them here to avoid duplicates.
   const unstagedFiles = (gitStatus?.files || []).filter(f => {
+    if (renamedToPaths.has(f.path)) return false;
     // If it's only staged (index = A/M/D, working_dir = ' '), skip
     if (f.working_dir === ' ' && f.index !== ' ' && f.index !== '?') return false;
     return true;
@@ -26,6 +34,8 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
     let color = '';
     if (f.index === '?' && f.working_dir === '?') {
       letter = 'U'; color = 'text-green-400';
+    } else if (f.index === 'R' || f.working_dir === 'R') {
+      letter = 'R'; color = 'text-blue-400';
     } else if (f.index === 'A' || f.working_dir === 'A') {
       letter = 'A'; color = 'text-green-500';
     } else if (f.index === 'M' || f.working_dir === 'M') {
@@ -44,13 +54,19 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
   };
 
   const renderFile = (filePath: string, isStaged: boolean) => {
+    // Prefer the typed `renamed` entry (clean from/to) over re-deriving it
+    // from the raw NUL-joined path/index codes in `files`.
+    const renameInfo = renamedFiles.find(r => r.to === filePath);
     const fileData = gitStatus?.files.find(f => f.path === filePath);
-    const { letter, color } = fileData ? getFileIconAndColor(fileData) : { letter: '', color: '' };
+    const { letter, color } = renameInfo
+      ? { letter: 'R', color: 'text-blue-400' }
+      : (fileData ? getFileIconAndColor(fileData) : { letter: '', color: '' });
     const fileName = filePath.split('/').pop() || filePath;
     const folderPath = filePath.split('/').slice(0, -1).join('/');
-    
+    const oldName = renameInfo ? (renameInfo.from.split('/').pop() || renameInfo.from) : null;
+
     return (
-      <div 
+      <div
         key={filePath}
         className="flex items-center gap-2 px-2 py-1 hover:bg-canvas-night-soft cursor-pointer group text-sm"
         onClick={() => {
@@ -58,10 +74,13 @@ export function SourceControl({ onFileSelect }: { onFileSelect?: (path: string) 
             onFileSelect(filePath);
           }
         }}
+        title={renameInfo ? `${renameInfo.from} → ${renameInfo.to}` : undefined}
       >
         <FileIcon size={14} className="text-muted-foreground shrink-0" />
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden leading-tight">
-          <span className={`truncate ${color}`}>{fileName}</span>
+          <span className={`truncate ${color}`}>
+            {oldName ? <>{oldName} <span className="text-muted-foreground">&rarr;</span> {fileName}</> : fileName}
+          </span>
           {folderPath && <span className="text-[10px] text-muted-foreground truncate">{folderPath}</span>}
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
