@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { simpleGit, SimpleGit, SimpleGitOptions } from 'simple-git';
 import { config } from '../config/env';
+import { getErrorMessage } from '../lib/errors';
 
 const WORKSPACE_ROOT = config.WORKSPACE_ROOT_PATH;
 
@@ -33,17 +34,18 @@ export async function resolveHeadContent(
   try {
     const content = await gitInstance.show([`HEAD:${filePath}`]);
     return { success: true, content, existsInHead: true };
-  } catch (error: any) {
-    if (error.message.includes("exists on disk, but not in 'HEAD'") ||
-        error.message.includes("does not exist in 'HEAD'") ||
-        error.message.includes("unknown revision") ||
+  } catch (error) {
+    const message = getErrorMessage(error);
+    if (message.includes("exists on disk, but not in 'HEAD'") ||
+        message.includes("does not exist in 'HEAD'") ||
+        message.includes("unknown revision") ||
         // Thrown when the repo has no commits at all yet, so 'HEAD' itself
         // doesn't resolve to anything — pre-existing gap this surfaced:
         // previously fell through to a 500 instead of "no prior version".
-        error.message.includes("invalid object name 'HEAD'")) {
+        message.includes("invalid object name 'HEAD'")) {
       return { success: true, content: '', existsInHead: false };
     }
-    return { success: false, error: error.message };
+    return { success: false, error: message };
   }
 }
 
@@ -53,8 +55,8 @@ export async function gitRoutes(fastify: FastifyInstance) {
     try {
       await git.init();
       return { success: true, message: 'Initialized empty Git repository' };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -62,8 +64,8 @@ export async function gitRoutes(fastify: FastifyInstance) {
     try {
       const status = await git.status();
       return { success: true, status };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -73,8 +75,8 @@ export async function gitRoutes(fastify: FastifyInstance) {
     try {
       await git.add(files);
       return { success: true, message: 'Files staged' };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -84,8 +86,8 @@ export async function gitRoutes(fastify: FastifyInstance) {
     try {
       const commitResult = await git.commit(message);
       return { success: true, commitResult };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -93,8 +95,8 @@ export async function gitRoutes(fastify: FastifyInstance) {
     try {
       const log = await git.log();
       return { success: true, log: log.all };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -102,8 +104,8 @@ export async function gitRoutes(fastify: FastifyInstance) {
     try {
       const branches = await git.branch();
       return { success: true, branches };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -117,8 +119,8 @@ export async function gitRoutes(fastify: FastifyInstance) {
         await git.checkout(branch);
       }
       return { success: true, message: `Checked out ${branch}` };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -126,8 +128,8 @@ export async function gitRoutes(fastify: FastifyInstance) {
     try {
       const diff = await git.diff();
       return { success: true, diff };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -137,8 +139,8 @@ export async function gitRoutes(fastify: FastifyInstance) {
     try {
       await git.reset(['HEAD', ...(Array.isArray(files) ? files : [files])]);
       return { success: true, message: 'Files unstaged' };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -158,8 +160,8 @@ export async function gitRoutes(fastify: FastifyInstance) {
     try {
       await git.addRemote(name, url);
       return { success: true, message: `Added remote ${name}` };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -168,8 +170,8 @@ export async function gitRoutes(fastify: FastifyInstance) {
     try {
       const pushResult = await git.push(remote || 'origin', branch || 'master');
       return { success: true, pushResult };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 }

@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { aiService } from '../services/ai.service';
 import { prisma } from '../database';
+import { getErrorMessage } from '../lib/errors';
 
 export class AiController {
 
@@ -29,8 +30,8 @@ export class AiController {
       const { userId, connectionId } = await this.getContextIds(request);
       const response = await aiService.chat(prompt, connectionId, userId);
       return { success: true, response };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   }
 
@@ -41,8 +42,8 @@ export class AiController {
     try {
       const response = await aiService.explain(sql);
       return { success: true, response };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   }
 
@@ -53,8 +54,8 @@ export class AiController {
     try {
       const response = await aiService.fix(sql, error);
       return { success: true, response };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   }
 
@@ -65,8 +66,8 @@ export class AiController {
     try {
       const response = await aiService.optimize(sql);
       return { success: true, response };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   }
 
@@ -75,8 +76,8 @@ export class AiController {
       const { userId, connectionId } = await this.getContextIds(request);
       const history = await aiService.getHistory(connectionId, userId);
       return { success: true, history };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   }
 
@@ -85,8 +86,8 @@ export class AiController {
       const { userId, connectionId } = await this.getContextIds(request);
       await aiService.clearHistory(connectionId, userId);
       return { success: true };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   }
 }

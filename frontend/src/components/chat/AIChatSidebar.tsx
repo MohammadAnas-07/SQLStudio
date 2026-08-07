@@ -23,14 +23,6 @@ export function AIChatSidebar({ onClose, onExecuteQuery, onInsertIntoEditor }: A
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { error: toastError } = useToast();
 
-  useEffect(() => {
-    fetchHistory();
-  }, []);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
-
   const fetchHistory = async () => {
     try {
       const res = await apiFetch('/api/ai/history');
@@ -42,6 +34,21 @@ export function AIChatSidebar({ onClose, onExecuteQuery, onInsertIntoEditor }: A
       console.error('Failed to fetch history', e);
     }
   };
+
+  // Runs once on mount only, same as before — fetchHistory is declared
+  // above it now (was previously declared after, which the react-hooks
+  // linter flags: a function hoisted via `const` only becomes callable
+  // once its declaration line actually runs, so referencing it earlier
+  // in source order is fragile even though it happened to work here,
+  // since the effect body doesn't execute until after the whole
+  // component function — including this declaration — has run).
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -63,7 +70,7 @@ export function AIChatSidebar({ onClose, onExecuteQuery, onInsertIntoEditor }: A
       } else {
         setMessages(prev => [...prev, { id: Date.now().toString() + 'e', role: 'model', content: `**Error:** ${data.error}` }]);
       }
-    } catch (error: any) {
+    } catch {
       setMessages(prev => [...prev, { id: Date.now().toString() + 'e', role: 'model', content: `**Network Error:** Could not reach the server.` }]);
     } finally {
       setIsLoading(false);
@@ -79,9 +86,9 @@ export function AIChatSidebar({ onClose, onExecuteQuery, onInsertIntoEditor }: A
       } else {
         toastError('Failed to clear history', data.error);
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error('Failed to clear history', e);
-      toastError('Failed to clear history', e?.message);
+      toastError('Failed to clear history', e instanceof Error ? e.message : String(e));
     }
   };
 

@@ -26,8 +26,8 @@ export default function Login() {
         await register(email, password, name || undefined);
       }
       navigate('/workspace', { replace: true });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsLoading(false);
     }

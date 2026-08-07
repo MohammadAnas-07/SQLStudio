@@ -184,7 +184,7 @@ export function FileExplorer({ onFileSelect }: { onFileSelect?: (path: string) =
       queryClient.invalidateQueries({ queryKey: ['git-status'] });
       setContextMenu(null);
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       alert(`Error: ${err.message}`);
       setContextMenu(null);
     }

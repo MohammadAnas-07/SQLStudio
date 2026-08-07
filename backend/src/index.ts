@@ -7,6 +7,7 @@ import { fileRoutes } from './routes/files.routes';
 import { authRoutes } from './routes/auth.routes';
 import { configureAuth } from './plugins/auth';
 import { isExistingSchema } from './lib/schemaValidation';
+import { getErrorMessage } from './lib/errors';
 import { config } from './config/env';
 import { prisma, db } from './database';
 import * as pty from 'node-pty';
@@ -158,8 +159,8 @@ fastify.get('/api/schema', async (request, reply) => {
         }
       ] 
     };
-  } catch (error: any) {
-    return reply.status(500).send({ success: false, error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ success: false, error: getErrorMessage(error) });
   }
 });
 
@@ -190,8 +191,8 @@ fastify.get('/api/dashboard/stats', async (request, reply) => {
       ],
       recentConnections
     };
-  } catch (error: any) {
-    return reply.status(500).send({ success: false, error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ success: false, error: getErrorMessage(error) });
   }
 });
 
@@ -210,8 +211,8 @@ fastify.delete('/api/database/:name', async (request, reply) => {
       await db.exec(`CREATE SCHEMA public;`);
     }
     return { success: true };
-  } catch (error: any) {
-    return reply.status(500).send({ success: false, error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ success: false, error: getErrorMessage(error) });
   }
 });
 

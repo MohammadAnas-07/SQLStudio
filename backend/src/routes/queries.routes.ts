@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import crypto from 'crypto';
 import { prisma, db } from '../database';
+import { getErrorMessage } from '../lib/errors';
 
 // 256 bits of randomness, URL-safe — unguessable by construction (not a
 // sequential id, not derived from anything predictable like the query id
@@ -63,9 +64,9 @@ export async function queriesRoutes(fastify: FastifyInstance) {
           affectedRows: lastResult.affectedRows || 0
         }
       };
-    } catch (error: any) {
+    } catch (error) {
       executionTimeMs = Math.round(performance.now() - start);
-      errorMessage = error.message;
+      errorMessage = getErrorMessage(error);
 
       // Log error to query history, same scoping as the success path above.
       const userId = request.user.id;
@@ -115,8 +116,8 @@ export async function queriesRoutes(fastify: FastifyInstance) {
         orderBy: { updatedAt: 'desc' }
       });
       return { success: true, savedQueries: saved };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -139,8 +140,8 @@ export async function queriesRoutes(fastify: FastifyInstance) {
         }
       });
       return { success: true, savedQuery: saved };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -179,8 +180,8 @@ export async function queriesRoutes(fastify: FastifyInstance) {
       }
       const savedQuery = await prisma.savedQuery.findUnique({ where: { id } });
       return { success: true, savedQuery };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -202,8 +203,8 @@ export async function queriesRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ success: false, error: 'Saved query not found' });
       }
       return { success: true, shareToken };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -223,8 +224,8 @@ export async function queriesRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ success: false, error: 'Saved query not found' });
       }
       return { success: true };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -262,8 +263,8 @@ export async function queriesRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ success: false, error: 'Shared query not found' });
       }
       return { success: true, name: shared.name, query: shared.query };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -284,8 +285,8 @@ export async function queriesRoutes(fastify: FastifyInstance) {
         take: 100
       });
       return { success: true, history };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -305,8 +306,8 @@ export async function queriesRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ success: false, error: 'Saved query not found' });
       }
       return { success: true };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 }

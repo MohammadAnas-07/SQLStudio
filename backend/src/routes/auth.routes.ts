@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../database';
+import { getErrorMessage } from '../lib/errors';
 
 export async function authRoutes(fastify: FastifyInstance) {
   fastify.post('/api/auth/register', async (request, reply) => {
@@ -44,8 +45,8 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       const token = fastify.jwt.sign({ id: user.id, email: user.email });
       return { success: true, token, user: { id: user.id, email: user.email, name: user.name } };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -69,8 +70,8 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       const token = fastify.jwt.sign({ id: user.id, email: user.email });
       return { success: true, token, user: { id: user.id, email: user.email, name: user.name } };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -82,8 +83,8 @@ export async function authRoutes(fastify: FastifyInstance) {
       });
       if (!user) return reply.status(404).send({ success: false, error: 'User not found' });
       return { success: true, user };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 }

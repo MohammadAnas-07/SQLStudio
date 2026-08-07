@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../database';
+import { getErrorMessage } from '../lib/errors';
 
 // Folders are flat (one level, no nesting) — a SavedQuery belongs to at
 // most one Folder, and a Folder has no parent/children. See
@@ -14,8 +15,8 @@ export async function foldersRoutes(fastify: FastifyInstance) {
         orderBy: { name: 'asc' }
       });
       return { success: true, folders };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -30,8 +31,8 @@ export async function foldersRoutes(fastify: FastifyInstance) {
         data: { name: trimmed, userId: request.user.id }
       });
       return { success: true, folder };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -56,8 +57,8 @@ export async function foldersRoutes(fastify: FastifyInstance) {
       }
       const folder = await prisma.folder.findUnique({ where: { id } });
       return { success: true, folder };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -82,8 +83,8 @@ export async function foldersRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ success: false, error: 'Folder not found' });
       }
       return { success: true };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
 }
