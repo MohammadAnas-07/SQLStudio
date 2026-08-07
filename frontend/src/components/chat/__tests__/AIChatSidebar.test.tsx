@@ -35,6 +35,35 @@ beforeEach(() => {
   mockToastError.mockReset();
 });
 
+describe('AIChatSidebar - history fetch on mount', () => {
+  // Regression test for the fetchHistory/useEffect declaration-order fix:
+  // fetchHistory is now declared above the effect that calls it (was
+  // below), purely to satisfy the react-hooks linter's declaration-order
+  // check. This pins down that the effect still only runs once, on
+  // mount — not on every re-render — which is the actual behavior the
+  // reorder needed to preserve.
+  it('fetches history exactly once on mount, and does not re-fetch on a later re-render', async () => {
+    vi.mocked(apiFetch).mockResolvedValue(
+      new Response(JSON.stringify({ success: true, history: [] }))
+    );
+
+    const { rerender } = renderSidebar();
+
+    await waitFor(() => {
+      expect(apiFetch).toHaveBeenCalledWith('/api/ai/history');
+    });
+    expect(apiFetch).toHaveBeenCalledTimes(1);
+
+    // Trigger a re-render (new element instances, same mounted component)
+    // the way user interaction normally would, and confirm the mount
+    // effect doesn't fire again.
+    fireEvent.change(screen.getByPlaceholderText(/ask ai/i), { target: { value: 'SELECT 1' } });
+    rerender(<AIChatSidebar onClose={noop} onExecuteQuery={noop} onInsertIntoEditor={noop} />);
+
+    expect(apiFetch).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('AIChatSidebar - clear history', () => {
   it('clears the visible chat when the DELETE request succeeds', async () => {
     vi.mocked(apiFetch).mockImplementation(async (path: string, init?: RequestInit) => {

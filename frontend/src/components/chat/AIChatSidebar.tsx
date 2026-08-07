@@ -23,14 +23,6 @@ export function AIChatSidebar({ onClose, onExecuteQuery, onInsertIntoEditor }: A
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { error: toastError } = useToast();
 
-  useEffect(() => {
-    fetchHistory();
-  }, []);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
-
   const fetchHistory = async () => {
     try {
       const res = await apiFetch('/api/ai/history');
@@ -42,6 +34,21 @@ export function AIChatSidebar({ onClose, onExecuteQuery, onInsertIntoEditor }: A
       console.error('Failed to fetch history', e);
     }
   };
+
+  // Runs once on mount only, same as before — fetchHistory is declared
+  // above it now (was previously declared after, which the react-hooks
+  // linter flags: a function hoisted via `const` only becomes callable
+  // once its declaration line actually runs, so referencing it earlier
+  // in source order is fragile even though it happened to work here,
+  // since the effect body doesn't execute until after the whole
+  // component function — including this declaration — has run).
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
