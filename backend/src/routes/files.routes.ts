@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { FastifyInstance } from 'fastify';
 import { config } from '../config/env';
+import { getErrorMessage } from '../lib/errors';
 
 const WORKSPACE_ROOT = config.WORKSPACE_ROOT_PATH;
 
@@ -63,8 +64,8 @@ async function buildFileTree(dirPath: string, relativeRoot: string = ''): Promis
       if (!a.isDir && b.isDir) return 1;
       return a.name.localeCompare(b.name);
     });
-  } catch (e: any) {
-    if (e.code === 'ENOENT') {
+  } catch (e) {
+    if (e instanceof Error && (e as NodeJS.ErrnoException).code === 'ENOENT') {
       return [];
     }
     throw e;
@@ -77,8 +78,8 @@ export const fileRoutes = async (fastify: FastifyInstance) => {
     try {
       const tree = await buildFileTree(WORKSPACE_ROOT);
       return { success: true, files: tree };
-    } catch (error: any) {
-      return reply.status(500).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: getErrorMessage(error) });
     }
   });
   
@@ -97,8 +98,8 @@ export const fileRoutes = async (fastify: FastifyInstance) => {
       }
       
       return { success: true };
-    } catch (error: any) {
-      return reply.status(400).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(400).send({ success: false, error: getErrorMessage(error) });
     }
   });
   
@@ -111,8 +112,8 @@ export const fileRoutes = async (fastify: FastifyInstance) => {
       
       await fs.rename(targetOldPath, targetNewPath);
       return { success: true };
-    } catch (error: any) {
-      return reply.status(400).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(400).send({ success: false, error: getErrorMessage(error) });
     }
   });
   
@@ -130,8 +131,8 @@ export const fileRoutes = async (fastify: FastifyInstance) => {
       }
       
       return { success: true };
-    } catch (error: any) {
-      return reply.status(400).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(400).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -144,8 +145,8 @@ export const fileRoutes = async (fastify: FastifyInstance) => {
       
       const content = await fs.readFile(targetPath, 'utf-8');
       return { success: true, content };
-    } catch (error: any) {
-      return reply.status(400).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(400).send({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -155,8 +156,8 @@ export const fileRoutes = async (fastify: FastifyInstance) => {
       const targetPath = resolveAndValidatePath(reqPath);
       await fs.writeFile(targetPath, content, 'utf-8');
       return { success: true };
-    } catch (error: any) {
-      return reply.status(400).send({ success: false, error: error.message });
+    } catch (error) {
+      return reply.status(400).send({ success: false, error: getErrorMessage(error) });
     }
   });
 

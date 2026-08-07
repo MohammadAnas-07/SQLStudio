@@ -64,7 +64,11 @@ export default function SQLWorkspace() {
       // Optional: clear state so a refresh doesn't keep it
       window.history.replaceState({}, document.title);
     }
-  }, [location.state?.query]);
+    // setQuery is included safely here: useSessionStorage returns a
+    // useCallback-memoized setter (stable for a given key), so this
+    // doesn't re-run on every render — only when the navigation state's
+    // query actually changes.
+  }, [location.state?.query, setQuery]);
 
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
 
@@ -157,7 +161,7 @@ export default function SQLWorkspace() {
       queryClient.invalidateQueries({ queryKey: ['schema'] });
       success('Database deleted', 'The database and all its tables have been removed.');
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       error('Failed to delete database', err.message);
     }
   });
@@ -182,8 +186,8 @@ export default function SQLWorkspace() {
         } else {
           error('Failed to save file', json.error);
         }
-      } catch (err: any) {
-        error('Error saving file', err.message);
+      } catch (err) {
+        error('Error saving file', err instanceof Error ? err.message : String(err));
       }
       return;
     }
@@ -209,8 +213,8 @@ export default function SQLWorkspace() {
       } else {
         error('Failed to save query', json.error);
       }
-    } catch (err: any) {
-      error('Error saving query', err.message);
+    } catch (err) {
+      error('Error saving query', err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -225,8 +229,8 @@ export default function SQLWorkspace() {
       } else {
         error('Failed to load file', data.error);
       }
-    } catch (err: any) {
-      error('Failed to load file', err.message);
+    } catch (err) {
+      error('Failed to load file', err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -247,8 +251,8 @@ export default function SQLWorkspace() {
       } else {
         error('Failed to load diff', localData.error || gitData.error);
       }
-    } catch (err: any) {
-      error('Failed to load diff', err.message);
+    } catch (err) {
+      error('Failed to load diff', err instanceof Error ? err.message : String(err));
     }
   };
 

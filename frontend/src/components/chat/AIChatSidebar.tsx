@@ -63,7 +63,7 @@ export function AIChatSidebar({ onClose, onExecuteQuery, onInsertIntoEditor }: A
       } else {
         setMessages(prev => [...prev, { id: Date.now().toString() + 'e', role: 'model', content: `**Error:** ${data.error}` }]);
       }
-    } catch (error: any) {
+    } catch {
       setMessages(prev => [...prev, { id: Date.now().toString() + 'e', role: 'model', content: `**Network Error:** Could not reach the server.` }]);
     } finally {
       setIsLoading(false);
@@ -79,9 +79,9 @@ export function AIChatSidebar({ onClose, onExecuteQuery, onInsertIntoEditor }: A
       } else {
         toastError('Failed to clear history', data.error);
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error('Failed to clear history', e);
-      toastError('Failed to clear history', e?.message);
+      toastError('Failed to clear history', e instanceof Error ? e.message : String(e));
     }
   };
 

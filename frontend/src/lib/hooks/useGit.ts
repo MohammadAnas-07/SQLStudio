@@ -75,7 +75,7 @@ export function useGitMutations() {
       return data;
     },
     onSuccess: invalidateGit,
-    onError: (err: any) => error('Git Stage Failed', err.message)
+    onError: (err: Error) => error('Git Stage Failed', err.message)
   });
 
   const unstage = useMutation({
@@ -90,7 +90,7 @@ export function useGitMutations() {
       return data;
     },
     onSuccess: invalidateGit,
-    onError: (err: any) => error('Git Unstage Failed', err.message)
+    onError: (err: Error) => error('Git Unstage Failed', err.message)
   });
 
   const commit = useMutation({
@@ -108,7 +108,7 @@ export function useGitMutations() {
       success('Commit Successful', 'Changes have been committed.');
       invalidateGit();
     },
-    onError: (err: any) => error('Commit Failed', err.message)
+    onError: (err: Error) => error('Commit Failed', err.message)
   });
 
   const checkout = useMutation({
@@ -126,7 +126,7 @@ export function useGitMutations() {
       success('Branch Changed', 'Successfully switched branch.');
       invalidateGit();
     },
-    onError: (err: any) => error('Checkout Failed', err.message)
+    onError: (err: Error) => error('Checkout Failed', err.message)
   });
 
   return { stage, unstage, commit, checkout };

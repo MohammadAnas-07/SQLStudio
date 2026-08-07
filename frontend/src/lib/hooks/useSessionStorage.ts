@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 export function useSessionStorage<T>(key: string, initialValue: T) {
   // State to store our value
@@ -16,23 +16,27 @@ export function useSessionStorage<T>(key: string, initialValue: T) {
     }
   });
 
-  // Return a wrapped version of useState's setter function that
-  // persists the new value to sessionStorage.
-  const setValue = (value: T | ((val: T) => T)) => {
+  // Return a wrapped version of useState's setter function that persists
+  // the new value to sessionStorage. Wrapped in useCallback (functional
+  // update, so it only needs `key` as a dependency) so this stays
+  // reference-stable across renders — callers can safely list it in a
+  // useEffect dependency array without triggering re-runs on every render.
+  const setValue = useCallback((value: T | ((val: T) => T)) => {
     try {
-      // Allow value to be a function so we have same API as useState
-      const valueToStore =
-        value instanceof Function ? value(storedValue) : value;
-      
-      setStoredValue(valueToStore);
-      
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(key, JSON.stringify(valueToStore));
-      }
+      setStoredValue((prev) => {
+        // Allow value to be a function so we have same API as useState
+        const valueToStore = value instanceof Function ? value(prev) : value;
+
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem(key, JSON.stringify(valueToStore));
+        }
+
+        return valueToStore;
+      });
     } catch (error) {
       console.warn(`Error setting sessionStorage key "${key}":`, error);
     }
-  };
+  }, [key]);
 
   return [storedValue, setValue] as const;
 }

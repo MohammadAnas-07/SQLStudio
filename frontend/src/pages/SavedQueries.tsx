@@ -68,7 +68,7 @@ export default function SavedQueries() {
       queryClient.invalidateQueries({ queryKey: ['savedQueries'] });
       success('Query deleted', 'The saved query was deleted successfully.');
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       error('Failed to delete query', err.message);
     }
   });
@@ -90,7 +90,7 @@ export default function SavedQueries() {
       setNewFolderName('');
       setIsNewFolderOpen(false);
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       error('Failed to create folder', err.message);
     }
   });
@@ -110,7 +110,7 @@ export default function SavedQueries() {
       if (folderFilter === id) setFolderFilter(ALL_FILTER);
       success('Folder deleted', 'Its queries were moved to Uncategorized, not deleted.');
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       error('Failed to delete folder', err.message);
     }
   });
@@ -129,7 +129,7 @@ export default function SavedQueries() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['savedQueries'] });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       error('Failed to move query', err.message);
     }
   });
@@ -161,7 +161,7 @@ export default function SavedQueries() {
         success('Sharing disabled', 'The previous link no longer works.');
       }
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       error('Failed to update sharing', err.message);
     }
   });

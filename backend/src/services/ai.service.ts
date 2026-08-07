@@ -3,6 +3,7 @@ import { config } from '../config/env';
 import { getSchema } from '../rag/schemaRetriever';
 import { buildSystemPrompt } from '../rag/promptBuilder';
 import { prisma } from '../database';
+import { getErrorMessage } from '../lib/errors';
 
 // Initialize the Google Gemini SDK
 const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
@@ -96,9 +97,9 @@ export class AiService {
       });
 
       return responseText;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Gemini API Error:', error);
-      throw new Error(`Failed to generate response: ${error.message}`);
+      throw new Error(`Failed to generate response: ${getErrorMessage(error)}`);
     }
   }
 
